@@ -56,7 +56,7 @@ def doc_warnings(result: DocResult) -> list[str]:
     return warnings
 
 
-def build_report(results: list[DocResult], unregistered: list[str], sample_size: int = 20, seed: int = 42) -> str:
+def build_report(results: list[DocResult], unregistered: list[str], sample_size: int = 30, seed: int = 42) -> str:
     out = [f"# 파싱 검수 리포트", "", f"생성: {datetime.now():%Y-%m-%d %H:%M}", ""]
 
     ok = [r for r in results if not r.error]
@@ -90,18 +90,64 @@ def build_report(results: list[DocResult], unregistered: list[str], sample_size:
     if unregistered:
         out += ["## sources.csv 에 등록되지 않은 파일", ""] + [f"- `{p}`" for p in unregistered] + [""]
 
-    articles = [c for r in ok for c in r.chunks if c["section"] in ("본칙", "별표")]
-    if articles:
-        rng = random.Random(seed)
-        sample = rng.sample(articles, min(sample_size, len(articles)))
+    sample = review_sample(ok, sample_size, seed)
+    if sample:
         out += ["## 수작업 검수 샘플", "",
-                "각 청크가 **하나의 조(또는 별표)만 온전히** 담고 있는지 확인하고 체크한다.",
-                "경계 오류 = 앞/뒤 조 내용이 섞였거나, 조문 중간에서 잘렸거나(분할 표시 없이), 조 제목이 틀린 경우.", ""]
-        for c in sample:
-            preview = c["text"][:400] + (" …" if len(c["text"]) > 400 else "")
-            out += [f"- [ ] `{c['chunk_id']}` — {c['doc_title']} {c['article_label']} "
-                    f"(p.{c['page_start']}–{c['page_end']}, part {c['part'] + 1}/{c['total_parts']})",
-                    "", "```text", preview, "```", ""]
-        out += ["경계 오류율 = 오류 개수 / 샘플 수 → **5% 미만**이면 W1 완료.", ""]
+                f"본칙 · 별표 · 부칙에서 문서별로 고르게 {len(sample)}개를 뽑았다. 각 항목에서 확인할 것:",
+                "1. **시작**: 청크 첫 줄이 해당 조(별표) 헤딩인가? (분할 조각은 `(계속)` 머리 다음 줄)",
+                "2. **끝**: 마지막 줄 다음에 오는 `▼ 다음 청크 첫 줄` 이 바로 다음 조(별표) 헤딩인가? — 아니면 조문 중간에서 잘린 것",
+                "3. **섞임**: 본문 안에 다른 조의 헤딩(`제N조(...)`)이 들어가 있지 않은가?",
+                "4. **메타데이터**: 제목 줄의 조번호 · 조제목이 본문과 일치하는가? (별표는 표의 숫자가 맞는 열에 있는가)",
+                "",
+                "문제가 없으면 `[ ]` 를 `[x]` 로 바꾸고, 오류면 `[!]` 로 바꾼 뒤 아래에 사유를 한 줄 적는다.",
+                "판단이 어려우면 `파일` 경로의 원문을 열어 조번호로 검색해 대조한다.",
+                "",
+                "> 이 파일은 `python -m ingestion.run` 을 돌릴 때마다 다시 만들어진다. "
+                "체크는 `data/processed/review_w1.md` 로 **복사한 사본**에 한다.", ""]
+        for item in sample:
+            c = item["chunk"]
+            out += [f"- [ ] `{c['chunk_id']}` — **{c['doc_title']} {c['article_label']}**"
+                    + (f"({c['article_title']})" if c["article_title"] else "")
+                    + f" · {c['section']} · part {c['part'] + 1}/{c['total_parts']} · 파일 `{item['file']}`",
+                    "", "```text",
+                    f"▲ 이전 청크 마지막 줄: {item['prev'] or '(문서 시작)'}",
+                    "────────",
+                    c["text"],
+                    "────────",
+                    f"▼ 다음 청크 첫 줄: {item['next'] or '(문서 끝)'}",
+                    "```", ""]
+        out += [f"경계 오류율 = `[!]` 개수 / {len(sample)} → **5% 미만**(오류 1개 이하)이면 W1 완료.", ""]
 
     return "\n".join(out)
+
+
+def review_sample(results: list[DocResult], size: int = 30, seed: int = 42) -> list[dict]:
+    """검수용 층화 표본: 본칙 70% · 별표 20% · 부칙 10%, 문서별로 돌아가며 고른다."""
+    rng = random.Random(seed)
+    quotas = {"본칙": round(size * 0.7), "별표": round(size * 0.2)}
+    quotas["부칙"] = size - sum(quotas.values())
+
+    def context(chunks: list[dict], i: int) -> dict:
+        prev_text = chunks[i - 1]["text"].splitlines()[-1] if i > 0 else ""
+        next_text = chunks[i + 1]["text"].splitlines()[0] if i + 1 < len(chunks) else ""
+        return {"prev": prev_text[:120], "next": next_text[:120]}
+
+    picked: list[dict] = []
+    for section, quota in quotas.items():
+        pools = []
+        for r in results:
+            idx = [i for i, c in enumerate(r.chunks) if c["section"] == section]
+            rng.shuffle(idx)
+            if idx:
+                pools.append((r, idx))
+        rng.shuffle(pools)
+        taken = 0
+        while taken < quota and any(idx for _, idx in pools):
+            for r, idx in pools:
+                if taken >= quota:
+                    break
+                if idx:
+                    i = idx.pop()
+                    picked.append({"chunk": r.chunks[i], "file": r.source.file_path, **context(r.chunks, i)})
+                    taken += 1
+    return picked
