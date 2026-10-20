@@ -47,7 +47,7 @@ data/raw/{org_code}/{규정명}_별표{번호}.{hwp|pdf}      # 별표는 따로
 | org | O | 기관명 | 한국○○공사 |
 | org_code | O | 영문 약칭 (폴더명과 동일) | kxx |
 | title | O | 규정명 | 여비규정 |
-| category | O | 여비 / 복무 / 보수 / 복지 / 회계 / 인사 / 결재 / 윤리 / 기타 | 여비 |
+| category | O | 여비 / 복무 / 보수 / 복지 / 회계 / 계약 / 인사 / 결재 / 윤리 / 민원 / 기타 | 여비 |
 | effective_date | O | 시행일 (YYYY-MM-DD) | 2025-03-01 |
 | source_url | O | 다운로드한 페이지 URL | https://... |
 | collected_at | O | 수집일 (YYYY-MM-DD) | 2026-10-20 |
