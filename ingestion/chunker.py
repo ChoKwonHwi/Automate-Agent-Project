@@ -201,9 +201,24 @@ def _pack_lines(lines: list[Line], max_chars: int) -> list[list[Line]]:
     return parts
 
 
+_SHORT_ARTICLE_RE = re.compile(r"^제\s*\d+\s*조(?:\s*의\s*\d+)?\s*(?:[(（][^)）\n]{1,60}[)）])?")
+_SHORT_ANNEX_RE = re.compile(r"^[\[【<〔〈][^\]】>〕〉]{1,30}[\]】>〕〉]")
+
+
+def _short_heading(line: str) -> str:
+    for pattern in (_SHORT_ARTICLE_RE, _SHORT_ANNEX_RE):
+        if m := pattern.match(line):
+            return m.group(0).strip()
+    return line[:40]
+
+
 def _continuation_header(block: Block, start: int) -> str:
-    """분할된 조각 앞에 붙일 머리. 조각이 표 중간에서 시작하면 그 표의 머리행을 다시 붙인다."""
-    head = f"{block.lines[0][0]} (계속)" if block.has_heading else "(계속)"
+    """분할된 조각 앞에 붙일 머리. 조각이 표 중간에서 시작하면 그 표의 머리행을 다시 붙인다.
+
+    머리는 헤딩 줄 전체가 아니라 "제57조(특별휴가)", "[별표 1]" 처럼 짧게 줄인다
+    (헤딩 줄에는 ①항 본문 · 개정 이력이 붙어 있어 조각마다 반복되면 잡음이 된다).
+    """
+    head = f"{_short_heading(block.lines[0][0])} (계속)" if block.has_heading else "(계속)"
     lines = [l for l, _ in block.lines]
     if start < len(lines) and lines[start].startswith("|"):
         for i in range(start - 1, 0, -1):

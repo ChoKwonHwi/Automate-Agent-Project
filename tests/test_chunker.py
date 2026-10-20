@@ -111,7 +111,7 @@ class ChunkDocumentTest(unittest.TestCase):
 
     def test_long_article_split_by_paragraph(self):
         body = "\n".join(f"{m} " + "가" * 300 for m in "①②③④")
-        chunks = chunk_document(lines_of("제7조(일비)\n" + body), META, max_chars=700)
+        chunks = chunk_document(lines_of("제7조(일비) <개정 2020. 1. 1.>\n" + body), META, max_chars=700)
         art = [c for c in chunks if c["article_label"] == "제7조"]
         self.assertEqual(len(art), 2)
         self.assertTrue(art[1]["text"].startswith("제7조(일비) (계속)\n③"))
@@ -125,7 +125,7 @@ class ChunkDocumentTest(unittest.TestCase):
         self.assertGreater(len(chunks), 2)
         for c in chunks[1:]:
             first_lines = c["text"].splitlines()
-            self.assertEqual(first_lines[0], "[별표 1] 위임전결 (계속)")
+            self.assertEqual(first_lines[0], "[별표 1] (계속)")
             body_first = first_lines[3] if first_lines[1].startswith("|") else first_lines[1]
             if body_first.startswith("| b"):
                 self.assertEqual(first_lines[1:3], ["| 단위 | 세부 | 전결 |", "|---|---|---|"])

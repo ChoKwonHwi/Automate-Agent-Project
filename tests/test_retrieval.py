@@ -68,14 +68,29 @@ class IndexTest(unittest.TestCase):
         chunks = [chunk("a", "여비규정", "본칙", "제1조", "가"), chunk("b", "여비규정", "본칙", "제2조", "나")]
         quiet = lambda _: None
         self.assertEqual(index_chunks(self.client, "t", chunks, fake_embed, "m", log=quiet),
-                         {"total": 2, "embedded": 2, "deleted": 0, "unchanged": 0})
+                         {"total": 2, "embedded": 2, "metadata": 0, "deleted": 0, "unchanged": 0})
         # 같은 입력 재실행 → 재임베딩 없음
-        self.assertEqual(index_chunks(self.client, "t", chunks, fake_embed, "m", log=quiet)["embedded"], 0)
-        # b 변경, a 삭제, c 추가
+        self.assertEqual(index_chunks(self.client, "t", chunks, fake_embed, "m", log=quiet)["unchanged"], 2)
+        # b 본문 변경, a 삭제, c 추가
         changed = [chunk("b", "여비규정", "본칙", "제2조", "나나"), chunk("c", "여비규정", "본칙", "제3조", "다")]
         self.assertEqual(index_chunks(self.client, "t", changed, fake_embed, "m", log=quiet),
-                         {"total": 2, "embedded": 2, "deleted": 1, "unchanged": 0})
+                         {"total": 2, "embedded": 2, "metadata": 0, "deleted": 1, "unchanged": 0})
         self.assertEqual(self.client.count("t").count, 2)
+
+    def test_metadata_only_change_updates_payload_without_reembedding(self):
+        from retrieval.index import index_chunks, point_id
+
+        quiet = lambda _: None
+        c = chunk("a", "여비규정", "본칙", "제1조", "가")
+        index_chunks(self.client, "t", [c], fake_embed, "m", log=quiet)
+        calls = []
+        counting_embed = lambda texts: calls.append(texts) or fake_embed(texts)
+        updated = {**c, "source_url": "https://law.go.kr/x"}
+        stats = index_chunks(self.client, "t", [updated], counting_embed, "m", log=quiet)
+        self.assertEqual((stats["embedded"], stats["metadata"]), (0, 1))
+        self.assertEqual(calls, [])
+        point = self.client.retrieve("t", [point_id("a")], with_payload=True)[0]
+        self.assertEqual(point.payload["source_url"], "https://law.go.kr/x")
 
     def test_search_with_filter(self):
         from retrieval.index import index_chunks

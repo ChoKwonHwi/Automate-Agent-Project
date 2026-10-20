@@ -28,7 +28,13 @@ def point_id(chunk_id: str) -> str:
 
 
 def content_hash(chunk: dict, model_name: str) -> str:
+    """임베딩 입력이 바뀌었는지 판단 (바뀌면 재임베딩)."""
     return hashlib.sha1(f"{model_name}\n{chunk['embed_text']}".encode("utf-8")).hexdigest()
+
+
+def payload_hash(chunk: dict) -> str:
+    """메타데이터(출처 URL, 시행일 등)가 바뀌었는지 판단 (바뀌면 payload 만 갱신)."""
+    return hashlib.sha1(json.dumps(chunk, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def load_chunks(path: Path) -> list[dict]:
@@ -52,13 +58,16 @@ def ensure_collection(client, name: str, dim: int, rebuild: bool = False) -> Non
         client.create_collection(name, vectors_config=models.VectorParams(size=dim, distance=models.Distance.COSINE))
 
 
-def existing_hashes(client, name: str) -> dict[str, str]:
-    hashes: dict[str, str] = {}
+def existing_hashes(client, name: str) -> dict[str, tuple[str, str]]:
+    """포인트 ID → (content_hash, payload_hash)"""
+    hashes: dict[str, tuple[str, str]] = {}
     offset = None
     while True:
-        points, offset = client.scroll(name, limit=512, offset=offset, with_payload=["content_hash"], with_vectors=False)
+        points, offset = client.scroll(name, limit=512, offset=offset,
+                                       with_payload=["content_hash", "payload_hash"], with_vectors=False)
         for p in points:
-            hashes[str(p.id)] = (p.payload or {}).get("content_hash", "")
+            payload = p.payload or {}
+            hashes[str(p.id)] = (payload.get("content_hash", ""), payload.get("payload_hash", ""))
         if offset is None:
             return hashes
 
@@ -74,17 +83,32 @@ def index_chunks(client, collection: str, chunks: list[dict], embed: EmbedFn, mo
     if stale:
         client.delete(collection, points_selector=models.PointIdsList(points=stale))
 
-    todo = [(pid, c, content_hash(c, model_name)) for pid, c in current.items()]
-    todo = [(pid, c, h) for pid, c, h in todo if stored.get(pid) != h]
+    def payload(c: dict, ch: str, ph: str) -> dict:
+        return {**c, "ref": chunk_ref(c), "content_hash": ch, "payload_hash": ph}
+
+    todo, meta_only = [], []
+    for pid, c in current.items():
+        ch, ph = content_hash(c, model_name), payload_hash(c)
+        old_ch, old_ph = stored.get(pid, ("", ""))
+        if old_ch != ch:
+            todo.append((pid, c, ch, ph))
+        elif old_ph != ph:
+            meta_only.append((pid, c, ch, ph))
+
     for start in range(0, len(todo), batch_size):
         batch = todo[start:start + batch_size]
-        vectors = embed([c["embed_text"] for _, c, _ in batch])
+        vectors = embed([c["embed_text"] for _, c, _, _ in batch])
         client.upsert(collection, points=[
-            models.PointStruct(id=pid, vector=vec, payload={**c, "ref": chunk_ref(c), "content_hash": h})
-            for (pid, c, h), vec in zip(batch, vectors)
+            models.PointStruct(id=pid, vector=vec, payload=payload(c, ch, ph))
+            for (pid, c, ch, ph), vec in zip(batch, vectors)
         ])
         log(f"  임베딩 {min(start + batch_size, len(todo))}/{len(todo)}")
-    return {"total": len(current), "embedded": len(todo), "deleted": len(stale), "unchanged": len(current) - len(todo)}
+    for pid, c, ch, ph in meta_only:  # 벡터는 그대로 두고 메타데이터만 교체
+        client.overwrite_payload(collection, payload=payload(c, ch, ph), points=[pid])
+    if meta_only:
+        log(f"  메타데이터 갱신 {len(meta_only)}")
+    return {"total": len(current), "embedded": len(todo), "metadata": len(meta_only), "deleted": len(stale),
+            "unchanged": len(current) - len(todo) - len(meta_only)}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -118,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
         client.close()
     elapsed = time.perf_counter() - started
     print(f"완료 ({elapsed:.1f}초): 전체 {stats['total']} · 임베딩 {stats['embedded']} · "
-          f"변경없음 {stats['unchanged']} · 삭제 {stats['deleted']}")
+          f"메타데이터 갱신 {stats['metadata']} · 변경없음 {stats['unchanged']} · 삭제 {stats['deleted']}")
     print(f"→ {s.qdrant_path.relative_to(ROOT).as_posix()} / {s.collection}")
     return 0
 
