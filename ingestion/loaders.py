@@ -159,7 +159,11 @@ def _hwpx_table(tbl) -> str:
 
 # ---------------------------------------------------------------- HWP 5.0 (OLE 바이너리)
 
+HWPTAG_PARA_HEADER = 66
 HWPTAG_PARA_TEXT = 67
+HWPTAG_CTRL_HEADER = 71
+HWPTAG_LIST_HEADER = 72
+HWPTAG_TABLE = 77
 # 8 wchar 를 차지하는 확장 · 인라인 컨트롤 문자 (HWP 5.0 문서 형식 명세)
 _WIDE_CONTROLS = {1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
 
@@ -187,13 +191,58 @@ def _load_hwp(path: Path) -> list[Page]:
 
 
 def hwp_section_text(data: bytes) -> str:
-    paragraphs = []
-    for tag, payload in iter_hwp_records(data):
-        if tag == HWPTAG_PARA_TEXT:
+    """본문 문단은 줄 단위로, 표는 마크다운 표로 복원한다.
+
+    표 구조: CTRL_HEADER('tbl ', 레벨 L) → TABLE(L+1) → 셀마다 LIST_HEADER(L+1) + 셀 문단들.
+    LIST_HEADER 의 8바이트 이후에 열 · 행 · 열병합 · 행병합(각 UINT16)이 온다.
+    중첩 표의 셀은 바깥 셀의 텍스트로 합친다.
+    """
+    blocks: list[str] = []
+    table: dict | None = None  # {"level", "cells": {(row, col): [text]}, "spans": {(row, col): 열병합}, ...}
+
+    def flush_table():
+        nonlocal table
+        if table and table["cells"]:
+            cells, spans = table["cells"], table["spans"]
+            n_rows = max(r for r, _ in cells) + 1
+            n_cols = max(max(c for _, c in cells) + 1, max(spans.values(), default=1))
+
+            def full_width(r: int) -> bool:  # 한 칸이 모든 열을 덮는 행 (예: 표 아래 "비고 :")
+                return spans.get((r, 0), 1) >= n_cols and n_cols > 1
+
+            top, bottom = 0, n_rows
+            while top < bottom and full_width(top):
+                top += 1
+            while bottom > top and full_width(bottom - 1):
+                bottom -= 1
+            blocks.extend(" ".join(cells.get((r, 0), [])) for r in range(0, top))
+            rows = [[" ".join(cells.get((r, c), [])) for c in range(n_cols)] for r in range(top, bottom)]
+            md = table_to_markdown(rows)
+            if md:
+                blocks.append(md)
+            blocks.extend(" ".join(cells.get((r, 0), [])) for r in range(bottom, n_rows))
+        table = None
+
+    for tag, level, payload in iter_hwp_records(data):
+        if table is not None and level <= table["level"]:
+            flush_table()
+        if tag == HWPTAG_CTRL_HEADER and payload[:4] == b" lbt" and table is None:
+            table = {"level": level, "cells": {}, "spans": {}, "cell_level": level + 1, "current": None}
+        elif tag == HWPTAG_LIST_HEADER and table is not None and level == table["cell_level"] and len(payload) >= 16:
+            col, row, col_span = struct.unpack_from("<HHH", payload, 8)
+            table["current"] = (row, col)
+            table["cells"].setdefault((row, col), [])
+            table["spans"][(row, col)] = col_span
+        elif tag == HWPTAG_PARA_TEXT:
             text = decode_hwp_para_text(payload).strip()
-            if text:
-                paragraphs.append(text)
-    return "\n".join(paragraphs)
+            if not text:
+                continue
+            if table is not None and table["current"] is not None:
+                table["cells"][table["current"]].append(text)
+            elif table is None:
+                blocks.append(text)
+    flush_table()
+    return "\n".join(blocks)
 
 
 def iter_hwp_records(data: bytes):
@@ -202,11 +251,12 @@ def iter_hwp_records(data: bytes):
         (header,) = struct.unpack_from("<I", data, pos)
         pos += 4
         tag = header & 0x3FF
+        level = (header >> 10) & 0x3FF
         size = (header >> 20) & 0xFFF
         if size == 0xFFF:
             (size,) = struct.unpack_from("<I", data, pos)
             pos += 4
-        yield tag, data[pos:pos + size]
+        yield tag, level, data[pos:pos + size]
         pos += size
 
 

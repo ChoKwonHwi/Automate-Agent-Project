@@ -10,8 +10,17 @@ HP = "http://www.hancom.co.kr/hwpml/2011/paragraph"
 HS = "http://www.hancom.co.kr/hwpml/2011/section"
 
 
-def hwp_record(tag: int, payload: bytes) -> bytes:
-    return struct.pack("<I", tag | (len(payload) << 20)) + payload
+def hwp_record(tag: int, payload: bytes, level: int = 0) -> bytes:
+    return struct.pack("<I", tag | (level << 10) | (len(payload) << 20)) + payload
+
+
+def hwp_para(text: str, level: int) -> bytes:
+    return hwp_record(66, b"\x00" * 22, level) + hwp_record(67, (text + "\r").encode("utf-16-le"), level + 1)
+
+
+def hwp_cell(col: int, row: int, col_span: int, text: str) -> bytes:
+    header = struct.pack("<HHI", 1, 0, 0x20) + struct.pack("<HHHH", col, row, col_span, 1) + b"\x00" * 31
+    return hwp_record(72, header, 2) + hwp_para(text, 2)
 
 
 class HwpBinaryTest(unittest.TestCase):
@@ -25,6 +34,24 @@ class HwpBinaryTest(unittest.TestCase):
         para = lambda s: hwp_record(67, (s + "\r").encode("utf-16-le"))
         data = hwp_record(66, b"\x00" * 22) + para("제1조(목적)") + para("이 규정은 …")
         self.assertEqual(hwp_section_text(data), "제1조(목적)\n이 규정은 …")
+
+    def test_table_rebuilt_as_markdown_with_full_width_note_outside(self):
+        data = (
+            hwp_para("[별표 3] 이전비 정액표", 0)
+            + hwp_record(66, b"\x00" * 22, 0)
+            + hwp_record(71, b" lbt" + b"\x00" * 40, 1)
+            + hwp_record(77, struct.pack("<IHH", 0, 3, 2), 2)
+            + hwp_cell(0, 0, 1, "구분") + hwp_cell(1, 0, 1, "100㎞ 미만")
+            + hwp_cell(0, 1, 1, "임원") + hwp_cell(1, 1, 1, "300")
+            + hwp_cell(0, 2, 2, "비고 : 선편 ㎞당 1,500원 추가")
+            + hwp_para("끝", 0)
+        )
+        self.assertEqual(hwp_section_text(data).splitlines(), [
+            "[별표 3] 이전비 정액표",
+            "| 구분 | 100㎞ 미만 |", "|---|---|", "| 임원 | 300 |",
+            "비고 : 선편 ㎞당 1,500원 추가",
+            "끝",
+        ])
 
 
 class HwpxTest(unittest.TestCase):
