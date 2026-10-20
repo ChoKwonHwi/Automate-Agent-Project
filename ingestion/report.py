@@ -36,10 +36,13 @@ def missing_article_numbers(chunks: list[dict]) -> list[int]:
 
 def doc_warnings(result: DocResult) -> list[str]:
     warnings = []
+    if not result.source.source_url.startswith("http"):
+        warnings.append("sources.csv 의 source_url 이 비어 있음(TODO) — 출처 URL 입력 필요")
     articles = [c for c in result.chunks if c["section"] == "본칙" and c["part"] == 0]
     if result.pages and result.chars < 100 * result.pages:
         warnings.append("텍스트가 거의 없음 — 스캔본(이미지 PDF)일 수 있음, OCR 필요")
-    if not articles:
+    is_annex = any(c["section"] == "별표" for c in result.chunks)
+    if not articles and not is_annex:
         warnings.append("조(條)를 하나도 인식하지 못함 — 원문 형식 확인 필요")
     if result.image_pages:
         warnings.append(f"글자 없이 이미지만 있는 쪽 {result.image_pages} — 별표(금액표)가 이미지일 수 있음. "
