@@ -27,7 +27,7 @@
 ## 진행 현황
 - [x] PRD 작성 및 확정
 - [x] 프로젝트 구조, 문서 파서(PDF/HWP/HWPX), 조항 단위 청커, 검수 리포트
-- [ ] W1 — 규정 데이터 수집 및 파싱 검수 (조항 경계 오류 < 5%)
+- [ ] W1 — 규정 데이터 수집 및 파싱 검수 (조항 경계 오류 < 5%) — 한국환경공단 규정 45개 문서 수집 · 파싱 완료, 검수 진행 중
 - [ ] W2 — 인덱싱, 기본 RAG, Golden Set 100개, LLM 3종 비교
 - [ ] W3 — 하이브리드 검색 + Reranker + 거절 로직
 - [ ] W4 — MCP 서버, LangGraph Agent, 계산 도구
@@ -63,6 +63,19 @@ python scripts/check_ollama.py
    - `data/processed/chunks.jsonl` — 조항 단위 청크
    - `data/processed/report.md` — 문서별 통계, 누락 조번호, 수작업 검수용 샘플
 
+### 4. 임베딩 · 검색 (W2)
+RTX 50 시리즈는 CUDA 12.8 빌드의 PyTorch 가 필요하다.
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu128
+pip install -e ".[rag]"
+```
+```bash
+python -m retrieval.index                      # 청크 → Qdrant(로컬 파일) 적재, 재실행 시 변경분만
+python -m retrieval.search "서울 출장 숙박비 상한" -k 5 --category 여비
+python -m retrieval.lookup "여비규정 제16조" "여비규정 별표1"   # 조항 원문 조회
+python -m retrieval.lookup --list 여비규정                     # 참조 표기 목록
+```
+
 ## 디렉터리 구조
 ```
 ├─ PRD.md
@@ -72,6 +85,7 @@ python scripts/check_ollama.py
 │  ├─ processed/         # 파싱 결과 (커밋 제외)
 │  └─ eval/              # 평가 데이터셋
 ├─ ingestion/            # 문서 로더, 정제, 조항 청커, 리포트
+├─ retrieval/            # 임베딩(BGE-M3), Qdrant 인덱스, 검색 · 조회 CLI
 ├─ scripts/              # 환경 점검 스크립트
 ├─ mcp_servers/regulation/
 ├─ agent/  api/  ui/  eval/

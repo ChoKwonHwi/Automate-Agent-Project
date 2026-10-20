@@ -11,13 +11,19 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# PyTorch 는 GPU(CUDA 12.8) 빌드를 먼저 설치한다 — README "빠른 시작" 참고
+rag = [
+    "torch>=2.7",
+    "sentence-transformers>=3",
+    "qdrant-client>=1.12",
+]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["ingestion*"]
+include = ["ingestion*", "retrieval*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

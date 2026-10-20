@@ -16,6 +16,8 @@ data/raw/**
 !data/raw/.gitkeep
 data/processed/**
 !data/processed/.gitkeep
+# 벡터 인덱스 (chunks.jsonl 로부터 재생성)
+data/index/
 # AI Hub 데이터는 재배포 금지
 data/aihub/
 data/eval/aihub/
