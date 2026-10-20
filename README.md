@@ -74,6 +74,7 @@ python -m retrieval.index                      # 청크 → Qdrant(로컬 파일
 python -m retrieval.search "서울 출장 숙박비 상한" -k 5 --category 여비
 python -m retrieval.lookup "여비규정 제16조" "여비규정 별표1"   # 조항 원문 조회
 python -m retrieval.lookup --list 여비규정                     # 참조 표기 목록
+python -m eval.golden                                          # Golden Set 형식 검사 · 구성 현황
 ```
 
 ## 디렉터리 구조
