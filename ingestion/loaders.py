@@ -200,6 +200,9 @@ def _load_hwpml(path: Path) -> list[Page]:
     raw = path.read_bytes().decode("utf-8-sig")
     # ElementTree 는 DTD 내부 엔티티를 지원하지 않으므로 DOCTYPE 을 걷어내고 &nbsp; 를 직접 치환한다
     raw = re.sub(r"<!DOCTYPE[^\[>]*(\[.*?\])?\s*>", "", raw, count=1, flags=re.S).replace("&nbsp;", "&#160;")
+    # 국가법령정보센터 HWPML 은 본문의 "<2014. 12. 15.>", "<삭제 …>" 같은 문자를 이스케이프하지 않는다
+    raw = re.sub(r"<(?![A-Za-z/!?])", "&lt;", raw)
+    raw = re.sub(r"&(?!#\d+;|#x[0-9A-Fa-f]+;|[A-Za-z]\w*;)", "&amp;", raw)
     root = ET.fromstring(raw)
     body = root.find("BODY")
     sections = body.findall("SECTION") if body is not None else []

@@ -85,6 +85,7 @@ class HwpmlTest(unittest.TestCase):
 <HWPML Version="2.1"><HEAD SecCnt="1"/><BODY><SECTION>
 <P><TEXT><SECDEF/><HEADER><PARALIST><P><TEXT><CHAR>머리말</CHAR></TEXT></P></PARALIST></HEADER></TEXT></P>
 <P><TEXT><CHAR>제1조(목적)&nbsp;목적이다.</CHAR></TEXT></P>
+<P><TEXT><CHAR>[별표 1] 삭제 <2014. 12. 15.> R&D</CHAR></TEXT></P>
 <P><TEXT><TABLE RowCount="2" ColCount="2">
   <ROW><CELL ColAddr="0" RowAddr="0" ColSpan="1"><PARALIST><P><TEXT><CHAR>구분</CHAR></TEXT></P></PARALIST></CELL>
        <CELL ColAddr="1" RowAddr="0" ColSpan="1"><PARALIST><P><TEXT><CHAR>금액</CHAR></TEXT></P></PARALIST></CELL></ROW>
@@ -97,7 +98,8 @@ class HwpmlTest(unittest.TestCase):
             path.write_text(xml, encoding="utf-8")
             pages = load_document(path)
         self.assertEqual(pages[0].text.splitlines(), [
-            "제1조(목적) 목적이다.", "| 구분 | 금액 |", "|---|---|", "| 임원 | 35 |",
+            "제1조(목적) 목적이다.", "[별표 1] 삭제 <2014. 12. 15.> R&D",
+            "| 구분 | 금액 |", "|---|---|", "| 임원 | 35 |",
         ])
 
 
