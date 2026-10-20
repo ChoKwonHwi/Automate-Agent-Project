@@ -75,7 +75,17 @@ python -m retrieval.search "서울 출장 숙박비 상한" -k 5 --category 여�
 python -m retrieval.lookup "여비규정 제16조" "여비규정 별표1"   # 조항 원문 조회
 python -m retrieval.lookup --list 여비규정                     # 참조 표기 목록
 python -m eval.golden                                          # Golden Set 형식 검사 · 구성 현황
+python -m eval.retrieval                                       # 검색 평가 → eval/reports/
 ```
+
+### 5. 근거 기반 답변 (W2)
+```bash
+ollama pull qwen3:8b
+python -m rag.answer "대리가 서울로 출장 가면 숙박비 상한은?"            # 답변 + 출처
+python -m rag.answer "결혼하면 휴가 며칠?" --show-context              # LLM 에 넣은 근거 원문도 출력
+```
+- 근거 밖 질문은 거절한다: 검색 점수가 매우 낮으면 즉시, 그 외에는 LLM 이 근거를 읽고 판단
+- 인용한 조항이 실제로 제공된 근거에 있는지 코드로 검증한다 (없는 조항 인용 시 경고)
 
 ## 디렉터리 구조
 ```
@@ -87,6 +97,8 @@ python -m eval.golden                                          # Golden Set 형�
 │  └─ eval/              # 평가 데이터셋
 ├─ ingestion/            # 문서 로더, 정제, 조항 청커, 리포트
 ├─ retrieval/            # 임베딩(BGE-M3), Qdrant 인덱스, 검색 · 조회 CLI
+├─ rag/                  # 근거 기반 답변 (프롬프트, Ollama 클라이언트, 인용 검증 · 거절)
+├─ eval/                 # Golden Set 검사, 검색 평가, 리포트(eval/reports)
 ├─ scripts/              # 환경 점검 스크립트
 ├─ mcp_servers/regulation/
 ├─ agent/  api/  ui/  eval/
