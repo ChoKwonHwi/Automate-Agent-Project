@@ -17,12 +17,16 @@ from dataclasses import asdict, dataclass, field
 
 from retrieval.refs import normalize_ref
 
+from .definitions import definition_blocks, matching_definitions
 from .llm import OllamaChat
 from .prompts import ANSWER_SCHEMA, build_messages
 
 MIN_SCORE = 0.45        # 이 점수 미만이면 검색 단계에서 바로 거절
 MAX_BLOCKS = 5          # LLM 에 넣는 근거 조항 수
-CHAR_BUDGET = 4500      # 근거 총 글자 수 (num_ctx 8K 안에서 시스템 프롬프트 · 답변 공간 확보, PRD 8.3)
+# 근거 총 글자 수. 실측상 한국어 약 0.85 token/글자 → 6,000자 ≈ 5.1K tokens.
+# num_ctx 8K 에서 시스템 프롬프트(~0.6K) · 답변(~0.5K) 공간을 남긴다 (PRD 8.3)
+CHAR_BUDGET = 6000
+BLOCK_CAP = 1800        # 조항 하나가 예산을 독차지하지 않도록 조항당 상한
 REFUSAL_TEXT = "등록된 규정에서 이 질문에 대한 근거를 찾지 못했습니다. 담당 부서에 확인해 주세요."
 
 
@@ -41,10 +45,31 @@ class AnswerResult:
     prompt_tokens: int = 0
 
 
-def select_blocks(hits: list, max_blocks: int = MAX_BLOCKS, char_budget: int = CHAR_BUDGET) -> list[dict]:
+def _join_parts(parts: list[tuple[int, str]], cap: int) -> str:
+    """검색 점수 순으로 들어온 조각 중 상한 안에 드는 것만 남겨 원래 순서로 잇는다."""
+    kept, used = [], 0
+    for part_no, text in parts:  # parts 는 검색 순위 순
+        if kept and used + len(text) > cap:
+            continue
+        kept.append((part_no, text[:cap] if not kept and len(text) > cap else text))
+        used += len(kept[-1][1])
+    kept.sort()
+    out, prev = [], None
+    for part_no, text in kept:
+        if prev is not None and part_no != prev + 1:
+            out.append("…(중략)")
+        out.append(text)
+        prev = part_no
+    return "\n".join(out)
+
+
+def select_blocks(hits: list, max_blocks: int = MAX_BLOCKS, char_budget: int = CHAR_BUDGET,
+                  block_cap: int = BLOCK_CAP) -> list[dict]:
     """검색 결과를 조항 단위 근거 블록으로 묶는다.
 
-    같은 조항의 분할 조각은 하나의 블록으로 합치고(순위는 처음 나온 조각 기준), 글자 예산을 넘으면 뒤를 자른다.
+    - 같은 조항의 분할 조각은 하나의 블록으로 합친다 (블록 순위는 처음 나온 조각 기준)
+    - 조항당 block_cap 을 넘으면 검색 점수가 높은 조각부터 남긴다 (긴 조문 하나가 예산을 독차지하지 않게)
+    - 전체가 char_budget 을 넘으면 뒤 블록을 자른다
     """
     order: list[str] = []
     grouped: dict[str, dict] = {}
@@ -55,21 +80,21 @@ def select_blocks(hits: list, max_blocks: int = MAX_BLOCKS, char_budget: int = C
             if len(order) >= max_blocks:
                 continue
             order.append(key)
-            grouped[key] = {"ref": hit.ref, "org": c.get("org", ""), "effective_date": c.get("effective_date", ""),
-                            "score": hit.score, "parts": {}}
-        grouped[key]["parts"][c.get("part", 0)] = c["text"]
+            grouped[key] = {"ref": hit.ref, "doc_title": c.get("doc_title", ""), "org": c.get("org", ""),
+                            "effective_date": c.get("effective_date", ""), "score": hit.score, "parts": []}
+        grouped[key]["parts"].append((c.get("part", 0), c["text"]))
 
     blocks, remaining = [], char_budget
     for key in order:
         g = grouped[key]
-        text = "\n".join(g["parts"][p] for p in sorted(g["parts"]))
+        text = _join_parts(g["parts"], block_cap)
         if remaining < 200:
             break
         if len(text) > remaining:
             text = text[:remaining] + "\n…(이하 생략)"
         remaining -= len(text)
-        blocks.append({"ref": g["ref"], "org": g["org"], "effective_date": g["effective_date"],
-                       "score": g["score"], "text": text})
+        blocks.append({"ref": g["ref"], "doc_title": g["doc_title"], "org": g["org"],
+                       "effective_date": g["effective_date"], "score": g["score"], "text": text})
     return blocks
 
 
@@ -94,8 +119,22 @@ def validate_citations(cited: list[str], blocks: list[dict]) -> tuple[list[str],
     return valid, invalid
 
 
-def answer_question(question: str, search, llm, k: int = 8, min_score: float = MIN_SCORE) -> AnswerResult:
-    """search(question, k) → [Hit], llm.chat(messages, schema=...) → LLMResponse"""
+def with_definitions(question: str, blocks: list[dict], definitions: dict | None, top_docs: int = 3) -> list[dict]:
+    """상위 근거와 같은 규정의 정의 조항에서, 질문에 나온 용어의 정의 줄을 근거로 덧붙인다."""
+    if not definitions or not blocks:
+        return blocks
+    docs = [b["doc_title"] for b in blocks[:top_docs] if b.get("doc_title")]
+    present = {normalize_ref(b["ref"]) for b in blocks}
+    defs = matching_definitions(question, docs, definitions, exclude_refs=present)
+    return blocks + definition_blocks(defs)
+
+
+def answer_question(question: str, search, llm, k: int = 8, min_score: float = MIN_SCORE,
+                    definitions: dict | None = None) -> AnswerResult:
+    """search(question, k) → [Hit], llm.chat(messages, schema=...) → LLMResponse
+
+    definitions: rag.definitions.build_index(chunks) 결과. 주면 질문 속 정의 용어의 정의 줄을 근거에 덧붙인다.
+    """
     started = time.perf_counter()
     hits = search(question, k)
     search_ms = (time.perf_counter() - started) * 1000
@@ -104,7 +143,7 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
         return AnswerResult(question, False, REFUSAL_TEXT, refused_by="retrieval", search_ms=search_ms,
                             context=[{"ref": h.ref, "score": round(h.score, 4)} for h in hits[:3]])
 
-    blocks = select_blocks(hits)
+    blocks = with_definitions(question, select_blocks(hits), definitions)
     messages = build_messages(question, blocks)
     data, resp, warnings = None, None, []
     for attempt in range(2):  # JSON 파싱 실패 시 1회 재시도 (PRD F-AGT-04)
@@ -114,7 +153,8 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
             break
         except (ValueError, json.JSONDecodeError):
             warnings.append(f"LLM 응답 JSON 파싱 실패 (시도 {attempt + 1})")
-    context = [{"ref": b["ref"], "score": round(b["score"], 4), "chars": len(b["text"])} for b in blocks]
+    context = [{"ref": b["ref"], "score": round(b["score"], 4), "chars": len(b["text"]),
+                "kind": b.get("kind", "search")} for b in blocks]
     if data is None:
         return AnswerResult(question, False, "답변 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
                             context=context, refused_by="error", warnings=warnings, search_ms=search_ms,
@@ -142,7 +182,9 @@ def render(result: AnswerResult, blocks_meta: dict[str, dict] | None = None) -> 
         lines += ["", f"(거절: {'검색 점수 낮음' if result.refused_by == 'retrieval' else '근거 부족 — LLM 판단'})"]
     for w in result.warnings:
         lines.append(f"⚠️ {w}")
-    lines += ["", "근거 후보: " + " | ".join(f"{c['ref']} {c['score']:.3f}" for c in result.context),
+    lines += ["", "근거 후보: " + " | ".join(
+                  f"{c['ref']} " + ("(정의)" if c.get("kind") == "definition" else f"{c['score']:.3f}")
+                  for c in result.context),
               f"(검색 {result.search_ms:.0f}ms · 생성 {result.llm_ms / 1000:.1f}s · 입력 {result.prompt_tokens} tokens)"]
     return "\n".join(lines)
 
@@ -157,9 +199,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="결과를 JSON 으로 출력")
     args = parser.parse_args(argv)
 
+    from retrieval.index import load_chunks
     from retrieval.search import Searcher
 
+    from .definitions import build_index
+
     searcher = Searcher()
+    searcher.warmup()
+    definitions = build_index(load_chunks(searcher.settings.chunks_path))
     llm = OllamaChat(model=args.model)
     try:
         hits_cache = {}
@@ -168,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
             hits_cache["hits"] = searcher.search(q, k)
             return hits_cache["hits"]
 
-        result = answer_question(args.question, search, llm, k=args.k)
+        result = answer_question(args.question, search, llm, k=args.k, definitions=definitions)
     finally:
         searcher.close()
 
@@ -178,8 +225,8 @@ def main(argv: list[str] | None = None) -> int:
     print(render(result))
     if args.show_context and hits_cache.get("hits"):
         print("\n===== 근거 원문")
-        for b in select_blocks(hits_cache["hits"]):
-            print(f"\n[{b['ref']}] ({b['score']:.3f})\n{b['text']}")
+        for b in with_definitions(args.question, select_blocks(hits_cache["hits"]), definitions):
+            print(f"\n[{b['ref']}] ({b['score']:.3f}{', 정의 첨부' if b.get('kind') == 'definition' else ''})\n{b['text']}")
     return 0
 
 

@@ -155,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     items = load_golden()
     searcher = Searcher()
     try:
-        searcher.embedder.model  # 모델 로드를 지연 측정에서 제외
+        searcher.warmup()  # 모델 로드 · GPU 초기화를 지연 측정에서 제외
         search = lambda q, k: [(h.score, h.ref, h.chunk) for h in searcher.search(q, k)]
         results = evaluate(items, search, args.k)
     finally:

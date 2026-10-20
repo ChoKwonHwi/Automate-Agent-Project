@@ -42,9 +42,21 @@ class SelectBlocksTest(unittest.TestCase):
         self.assertIn("③공단차량", blocks[1]["text"])
 
     def test_char_budget_truncates(self):
-        blocks = select_blocks([hit(0.9, "A 제1조", "가" * 3000), hit(0.8, "A 제2조", "나" * 3000)], char_budget=4000)
+        blocks = select_blocks([hit(0.9, "A 제1조", "가" * 3000), hit(0.8, "A 제2조", "나" * 3000)],
+                               char_budget=4000, block_cap=3000)
         self.assertEqual(len(blocks[0]["text"]), 3000)
         self.assertTrue(blocks[1]["text"].endswith("…(이하 생략)"))
+
+    def test_block_cap_keeps_best_parts_in_order(self):
+        # 긴 조문의 조각 5개(검색 순위: 0, 3, 1, 4, 2)가 상한 때문에 앞의 3개만 남고 원래 순서로 이어진다
+        long = [hit(0.9 - i / 100, "A 제57조", f"조각{p}" + "가" * 500, p) for i, p in enumerate([0, 3, 1, 4, 2])]
+        blocks = select_blocks(long + [hit(0.5, "A 제58조", "다음 조")], block_cap=1600)
+        text = blocks[0]["text"]
+        self.assertLess(text.index("조각0"), text.index("조각1"))
+        self.assertLess(text.index("조각1"), text.index("…(중략)"))
+        self.assertLess(text.index("…(중략)"), text.index("조각3"))
+        self.assertNotIn("조각4", text)
+        self.assertEqual([b["ref"] for b in blocks], ["A 제57조", "A 제58조"])  # 긴 조문이 예산을 독차지하지 않음
 
     def test_prompt_contains_refs(self):
         user = build_messages("질문", select_blocks(HITS))[1]["content"]

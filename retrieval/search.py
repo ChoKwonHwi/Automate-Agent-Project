@@ -46,6 +46,10 @@ class Searcher:
         if not self.client.collection_exists(s.collection):
             raise RuntimeError("인덱스가 없습니다. 먼저 `python -m retrieval.index` 를 실행하세요.")
 
+    def warmup(self) -> None:
+        """모델 로드 + 첫 GPU 연산(커널 초기화, 약 10초+)을 미리 끝내 첫 질문의 지연이 튀지 않게 한다."""
+        self.embedder.embed_query("워밍업")
+
     def search(self, query: str, k: int = 5, **filters: str | None) -> list[Hit]:
         vector = self.embedder.embed_query(query)
         result = self.client.query_points(
@@ -83,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
 
     searcher = Searcher()
     try:
-        searcher.embedder.model  # 모델 로드 시간을 검색 시간과 분리해서 잰다
+        searcher.warmup()  # 모델 로드 · GPU 초기화를 검색 시간과 분리해서 잰다
         started = time.perf_counter()
         hits = searcher.search(args.query, args.k, org=args.org, category=args.category,
                                section=args.section, doc=args.doc)
