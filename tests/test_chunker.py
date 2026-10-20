@@ -131,5 +131,19 @@ class CleanPagesTest(unittest.TestCase):
         self.assertEqual(lines, [f"제{i}조(항목{i}) 내용" for i in range(1, 5)])
 
 
+    def test_law_go_kr_two_page_document(self):
+        title = "○○공단 여비규정"
+        pages = [
+            Page(1, f"{title}\n{title}\n[시행 2018. 7. 1.]\n제1조(목적) 목적이다.\n부칙 <제1호,2010.7.29.>\n"
+                    "이 규정은 시행한다.\n법제처 1 국가법령정보센터"),
+            Page(2, f"{title}\n부칙 <제2호,2014.9.18.>\n이 규정은 시행한다.\n법제처 2 국가법령정보센터"),
+        ]
+        lines = [l for l, _ in clean_pages(pages)]
+        self.assertNotIn(title, lines)
+        self.assertFalse(any("국가법령정보센터" in l for l in lines))
+        self.assertIn("부칙 <제2호,2014.9.18.>", lines)
+        self.assertIn("부칙 <제1호,2010.7.29.>", lines)
+
+
 if __name__ == "__main__":
     unittest.main()
