@@ -111,6 +111,12 @@ class ChunkDocumentTest(unittest.TestCase):
         self.assertTrue(art[1]["text"].startswith("제7조(일비) (계속)\n③"))
         self.assertTrue(all(c["total_parts"] == 2 for c in art))
 
+    def test_oversized_paragraph_split_by_line(self):
+        body = "① 첫째 항\n" + "\n".join("나" * 100 for _ in range(30)) + "\n② 둘째 항"
+        chunks = chunk_document(lines_of("제8조(식비)\n" + body), META, max_chars=500)
+        self.assertTrue(all(c["char_len"] <= 500 + len("제8조(식비) (계속)\n") for c in chunks))
+        self.assertGreaterEqual(len(chunks), 6)
+
     def test_page_tracking(self):
         lines = lines_of("제1조(목적) 목적이다.", 1) + lines_of("계속되는 내용", 2) + lines_of("제2조(정의) 정의다.", 2)
         chunks = chunk_document(lines, META)

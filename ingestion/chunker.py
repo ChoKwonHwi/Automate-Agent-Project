@@ -171,8 +171,12 @@ def _pack_lines(lines: list[Line], max_chars: int) -> list[list[Line]]:
             units.append([line])
         else:
             units[-1].append(line)
-    if len(units) == 1:
-        units = [[l] for l in lines]
+    # 항 하나가 max_chars 를 넘으면 그 항은 줄 단위로 다시 나눈다
+    units = [
+        piece
+        for unit in units
+        for piece in ([unit] if sum(len(l[0]) + 1 for l in unit) <= max_chars else [[l] for l in unit])
+    ]
 
     parts: list[list[Line]] = []
     buf: list[Line] = []
