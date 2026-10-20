@@ -13,12 +13,20 @@ import sys
 from pathlib import Path
 
 from .chunker import chunk_document
-from .clean import clean_pages
-from .loaders import SUPPORTED_EXTENSIONS, load_document
+from .clean import Line, clean_pages
+from .loaders import SUPPORTED_EXTENSIONS, Page, load_document
 from .report import DocResult, build_report
 from .sources import load_sources
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def image_only_pages(pages: list[Page], lines: list[Line], min_chars: int = 10) -> list[int]:
+    """정제 후 남은 글자가 거의 없는데 이미지가 있는 쪽 번호."""
+    chars: dict[int, int] = {}
+    for line, page in lines:
+        chars[page] = chars.get(page, 0) + len(line)
+    return [p.number for p in pages if p.images and chars.get(p.number, 0) < min_chars]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -51,8 +59,10 @@ def main(argv: list[str] | None = None) -> int:
             results.append(DocResult(src, error=f"{type(exc).__name__}: {exc}"))
             print(f"실패 — {exc}")
             continue
-        results.append(DocResult(src, pages=len(pages), chars=sum(len(l) for l, _ in lines), chunks=chunks))
-        print(f"{len(pages)}쪽 → 청크 {len(chunks)}개")
+        image_pages = image_only_pages(pages, lines)
+        results.append(DocResult(src, pages=len(pages), chars=sum(len(l) for l, _ in lines),
+                                 chunks=chunks, image_pages=image_pages))
+        print(f"{len(pages)}쪽 → 청크 {len(chunks)}개" + (f" (이미지 쪽 {image_pages})" if image_pages else ""))
 
     registered = {(ROOT / s.file_path).resolve() for s in sources}
     raw_dir = ROOT / args.raw_dir

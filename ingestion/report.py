@@ -19,6 +19,7 @@ class DocResult:
     pages: int = 0
     chars: int = 0
     chunks: list[dict] = field(default_factory=list)
+    image_pages: list[int] = field(default_factory=list)
     error: str = ""
 
 
@@ -40,6 +41,9 @@ def doc_warnings(result: DocResult) -> list[str]:
         warnings.append("텍스트가 거의 없음 — 스캔본(이미지 PDF)일 수 있음, OCR 필요")
     if not articles:
         warnings.append("조(條)를 하나도 인식하지 못함 — 원문 형식 확인 필요")
+    if result.image_pages:
+        warnings.append(f"글자 없이 이미지만 있는 쪽 {result.image_pages} — 별표(금액표)가 이미지일 수 있음. "
+                        "별표 원본 파일을 따로 받거나 OCR / 수기 입력 필요")
     missing = missing_article_numbers(result.chunks)
     if missing:
         warnings.append(f"누락 조번호 {missing[:15]}{' …' if len(missing) > 15 else ''} — 경계 인식 실패 가능")

@@ -20,6 +20,7 @@ SUPPORTED_EXTENSIONS = {".pdf", ".hwp", ".hwpx", ".txt"}
 class Page:
     number: int
     text: str
+    images: int = 0  # 쪽에 포함된 이미지 수 (별표가 이미지로 들어간 경우 감지용)
 
 
 def load_document(path: str | Path, extract_tables: bool = True) -> list[Page]:
@@ -62,7 +63,7 @@ def _load_pdf(path: Path, extract_tables: bool) -> list[Page]:
     with pymupdf.open(path) as doc:
         for i, page in enumerate(doc, start=1):
             text = _pdf_page_with_tables(page) if extract_tables else page.get_text("text", sort=True)
-            pages.append(Page(i, text))
+            pages.append(Page(i, text, images=len(page.get_images())))
     return pages
 
 
