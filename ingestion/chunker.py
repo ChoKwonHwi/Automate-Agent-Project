@@ -201,12 +201,16 @@ def _pack_lines(lines: list[Line], max_chars: int) -> list[list[Line]]:
     return parts
 
 
-def _continuation_header(block: Block) -> str:
-    head = block.lines[0][0] if block.has_heading else ""
-    if block.section == "별표":
-        table = [l for l, _ in block.lines if l.startswith("|")][:2]
-        if len(table) == 2 and table[1].startswith("|---"):
-            return "\n".join([head, *table])
+def _continuation_header(block: Block, start: int) -> str:
+    """분할된 조각 앞에 붙일 머리. 조각이 표 중간에서 시작하면 그 표의 머리행을 다시 붙인다."""
+    head = f"{block.lines[0][0]} (계속)" if block.has_heading else "(계속)"
+    lines = [l for l, _ in block.lines]
+    if start < len(lines) and lines[start].startswith("|"):
+        for i in range(start - 1, 0, -1):
+            if lines[i].startswith("|---") and lines[i - 1].startswith("|"):
+                return "\n".join([head, lines[i - 1], lines[i]])
+            if not lines[i].startswith("|"):
+                break
     return head
 
 
@@ -216,11 +220,12 @@ def chunk_document(lines: list[Line], meta: dict, max_chars: int = 1200) -> list
     for idx, block in enumerate(split_blocks(lines)):
         text_len = sum(len(l) + 1 for l, _ in block.lines)
         parts = [block.lines] if text_len <= max_chars else _pack_lines(block.lines, max_chars)
-        header = _continuation_header(block)
+        start = 0
         for part_no, part in enumerate(parts):
             text = "\n".join(l for l, _ in part)
-            if part_no > 0 and header:
-                text = f"{header} (계속)\n{text}"
+            if part_no > 0:
+                text = f"{_continuation_header(block, start)}\n{text}"
+            start += len(part)
             label = block.label
             if block.section == "부칙":
                 label = f"부칙{block.supplement_no} {block.label}" if block.label != "부칙" else f"부칙{block.supplement_no}"

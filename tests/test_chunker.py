@@ -117,6 +117,21 @@ class ChunkDocumentTest(unittest.TestCase):
         self.assertTrue(art[1]["text"].startswith("제7조(일비) (계속)\n③"))
         self.assertTrue(all(c["total_parts"] == 2 for c in art))
 
+    def test_split_annex_repeats_header_of_current_table(self):
+        rows_a = "\n".join(f"| a{i} | {'가' * 40} |" for i in range(10))
+        rows_b = "\n".join(f"| b{i} | {'나' * 40} | {'다' * 10} |" for i in range(10))
+        text = f"[별표 1] 위임전결\n1. 공통\n| 업무 | 내용 |\n|---|---|\n{rows_a}\n2. 개별\n| 단위 | 세부 | 전결 |\n|---|---|---|\n{rows_b}"
+        chunks = [c for c in chunk_document(lines_of(text), META, max_chars=400) if c["section"] == "별표"]
+        self.assertGreater(len(chunks), 2)
+        for c in chunks[1:]:
+            first_lines = c["text"].splitlines()
+            self.assertEqual(first_lines[0], "[별표 1] 위임전결 (계속)")
+            body_first = first_lines[3] if first_lines[1].startswith("|") else first_lines[1]
+            if body_first.startswith("| b"):
+                self.assertEqual(first_lines[1:3], ["| 단위 | 세부 | 전결 |", "|---|---|---|"])
+            elif body_first.startswith("| a"):
+                self.assertEqual(first_lines[1:3], ["| 업무 | 내용 |", "|---|---|"])
+
     def test_oversized_paragraph_split_by_line(self):
         body = "① 첫째 항\n" + "\n".join("나" * 100 for _ in range(30)) + "\n② 둘째 항"
         chunks = chunk_document(lines_of("제8조(식비)\n" + body), META, max_chars=500)
