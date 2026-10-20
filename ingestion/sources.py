@@ -59,6 +59,9 @@ def load_sources(path: str | Path) -> list[Source]:
         empty = [c for c in REQUIRED_COLUMNS if not row.get(c)]
         if empty:
             raise ValueError(f"{path}:{line_no} 필수 값이 비어 있습니다: {empty}")
+        if row.get("doc_id", "").startswith("http"):
+            raise ValueError(f"{path}:{line_no} doc_id 칸(9번째)에 URL이 들어 있습니다. "
+                             "URL은 source_url 칸(6번째)에 넣고 doc_id 는 비워 두세요.")
         file_path = row["file_path"].replace("\\", "/")
         doc_id = row.get("doc_id") or f"{row['org_code']}-{Path(file_path).stem}"
         if doc_id in seen:
