@@ -82,6 +82,12 @@ class SplitBlocksTest(unittest.TestCase):
             ("별표", "별표 1"),
         ])
 
+    def test_annex_index_at_end_is_dropped(self):
+        text = "제1조(목적) 목적이다.\n부칙 <2020.1.1>\n이 규정은 시행한다.\n별표 / 서식\n[별표 1] 자격기준\n[별표 2] 승진범위"
+        blocks = split_blocks(lines_of(text))
+        self.assertEqual([(b.section, b.label) for b in blocks], [("본칙", "제1조"), ("부칙", "부칙")])
+        self.assertNotIn("별표 / 서식", [l for l, _ in blocks[-1].lines])
+
     def test_cross_reference_line_stays_in_article(self):
         art3 = next(b for b in self.blocks if b.label == "제3조")
         self.assertIn("제2조에 따른 출장의 경우에도 같다.", [l for l, _ in art3.lines])

@@ -26,6 +26,7 @@ _SUPPLEMENT_RE = re.compile(r"^부\s*칙\s*(?:[<(（\[〈].*)?$")
 _ANNEX_BRACKET_RE = re.compile(
     r"^[\[【<〔〈]\s*(별\s*표|별\s*지)\s*(제?\s*\d+\s*호?(?:\s*의\s*\d+)?)?\s*(?:서\s*식)?\s*[\]】>〕〉]\s*(.*)$"
 )
+_ANNEX_INDEX_RE = re.compile(r"^별\s*표\s*/\s*서\s*식$")
 _ANNEX_PLAIN_RE = re.compile(r"^(별\s*표|별\s*지)\s*(\d+(?:\s*의\s*\d+)?)(.*)$")
 
 # 붙어 쓰이면 인용으로 보는 조사 / 띄어 쓰여도 인용으로 보는 연결어
@@ -113,6 +114,8 @@ def split_blocks(lines: list[Line]) -> list[Block]:
             blocks.append(current)
 
     for line, page in lines:
+        if _ANNEX_INDEX_RE.match(line):  # 국가법령정보센터 본문 끝의 "별표 / 서식" 목차 제목
+            continue
         if mode != "별표" and (name := parse_chapter(line)):
             if "장" in name.split()[0]:
                 chapter, section_title = name, ""
@@ -149,8 +152,13 @@ def split_blocks(lines: list[Line]) -> list[Block]:
         current.lines.append((line, page))
 
     close()
-    # "부칙 <2020.1.1>" 헤딩 뒤에 부칙 조문이 이어지면 헤딩만 남은 블록은 버린다
-    return [b for b in blocks if not (b.label == "부칙" and not b.body_lines)]
+    # 헤딩만 있고 내용이 없는 블록은 버린다
+    # - "부칙 <2020.1.1>" 뒤에 부칙 조문이 이어지는 경우
+    # - 본문 끝 "별표 / 서식" 목차의 별표 제목 (실제 별표는 별도 파일로 수집)
+    def heading_only(b: Block) -> bool:
+        return not b.body_lines and (b.label == "부칙" or b.section == "별표")
+
+    return [b for b in blocks if not heading_only(b)]
 
 
 def parse_chapter(line: str) -> str | None:

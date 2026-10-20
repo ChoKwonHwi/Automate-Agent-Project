@@ -31,6 +31,11 @@ def load_document(path: str | Path, extract_tables: bool = True) -> list[Page]:
     if ext == ".hwpx":
         return _load_hwpx(path)
     if ext == ".hwp":
+        with open(path, "rb") as f:
+            head = f.read(512)
+        # 국가법령정보센터의 본문 "한글 저장"은 확장자만 .hwp 인 HWPML(XML) 파일이다
+        if head.lstrip(b"\xef\xbb\xbf").startswith(b"<?xml") or b"<HWPML" in head:
+            return _load_hwpml(path)
         return _load_hwp(path)
     if ext == ".txt":
         return [Page(1, path.read_text(encoding="utf-8"))]
@@ -46,6 +51,35 @@ def table_to_markdown(rows: list[list[str]]) -> str:
     lines = ["| " + " | ".join(rows[0]) + " |", "|" + "---|" * width]
     lines += ["| " + " | ".join(r) + " |" for r in rows[1:]]
     return "\n".join(lines)
+
+
+def grid_to_blocks(cells: dict[tuple[int, int], list[str]], spans: dict[tuple[int, int], int]) -> list[str]:
+    """(행, 열) 주소로 모은 셀을 마크다운 표로 만든다.
+
+    표 맨 위/아래에서 한 칸이 모든 열을 덮는 행(예: "비고 :")은 표 밖 문단으로 뺀다.
+    """
+    if not cells:
+        return []
+    n_rows = max(r for r, _ in cells) + 1
+    n_cols = max(max(c for _, c in cells) + 1, max(spans.values(), default=1))
+
+    def full_width(r: int) -> bool:
+        return n_cols > 1 and spans.get((r, 0), 1) >= n_cols
+
+    def text(r: int, c: int) -> str:
+        return " ".join(cells.get((r, c), []))
+
+    top, bottom = 0, n_rows
+    while top < bottom and full_width(top):
+        top += 1
+    while bottom > top and full_width(bottom - 1):
+        bottom -= 1
+    blocks = [text(r, 0) for r in range(0, top)]
+    md = table_to_markdown([[text(r, c) for c in range(n_cols)] for r in range(top, bottom)])
+    if md:
+        blocks.append(md)
+    blocks += [text(r, 0) for r in range(bottom, n_rows)]
+    return [b for b in blocks if b.strip()]
 
 
 def _clean_cell(cell: str | None) -> str:
@@ -157,6 +191,60 @@ def _hwpx_table(tbl) -> str:
     return table_to_markdown(rows)
 
 
+# ---------------------------------------------------------------- HWPML (한글 XML, 단일 파일)
+
+_HWPML_SKIP = {"HEADER", "FOOTER", "PICTURE", "SECDEF", "COLDEF", "AUTONUM", "FOOTNOTE", "ENDNOTE", "SHAPEOBJECT"}
+
+
+def _load_hwpml(path: Path) -> list[Page]:
+    raw = path.read_bytes().decode("utf-8-sig")
+    # ElementTree 는 DTD 내부 엔티티를 지원하지 않으므로 DOCTYPE 을 걷어내고 &nbsp; 를 직접 치환한다
+    raw = re.sub(r"<!DOCTYPE[^\[>]*(\[.*?\])?\s*>", "", raw, count=1, flags=re.S).replace("&nbsp;", "&#160;")
+    root = ET.fromstring(raw)
+    body = root.find("BODY")
+    sections = body.findall("SECTION") if body is not None else []
+    pages = []
+    for i, section in enumerate(sections, start=1):
+        blocks: list[str] = []
+        for p in section.findall("P"):
+            blocks.extend(_hwpml_paragraph(p))
+        pages.append(Page(i, "\n".join(blocks)))
+    return pages
+
+
+def _hwpml_paragraph(p) -> list[str]:
+    blocks: list[str] = []
+    buf: list[str] = []
+    for text in p.findall("TEXT"):
+        for child in text:
+            if child.tag == "CHAR":
+                buf.append("".join(child.itertext()))
+            elif child.tag == "TABLE":
+                if "".join(buf).strip():
+                    blocks.append("".join(buf))
+                buf.clear()
+                blocks.extend(_hwpml_table(child))
+            elif child.tag not in _HWPML_SKIP:
+                buf.append("".join(child.itertext()))
+    if "".join(buf).strip():
+        blocks.append("".join(buf))
+    return blocks
+
+
+def _hwpml_table(tbl) -> list[str]:
+    cells: dict[tuple[int, int], list[str]] = {}
+    spans: dict[tuple[int, int], int] = {}
+    for cell in tbl.findall("ROW/CELL"):  # 직계 셀만 (중첩 표는 셀 텍스트로 합쳐짐)
+        key = (int(cell.get("RowAddr", 0)), int(cell.get("ColAddr", 0)))
+        spans[key] = int(cell.get("ColSpan", 1))
+        paralist = cell.find("PARALIST")
+        texts = []
+        for p in (paralist.findall("P") if paralist is not None else []):
+            texts.extend(b.strip() for b in _hwpml_paragraph(p) if b.strip())
+        cells[key] = texts
+    return grid_to_blocks(cells, spans)
+
+
 # ---------------------------------------------------------------- HWP 5.0 (OLE 바이너리)
 
 HWPTAG_PARA_HEADER = 66
@@ -202,25 +290,8 @@ def hwp_section_text(data: bytes) -> str:
 
     def flush_table():
         nonlocal table
-        if table and table["cells"]:
-            cells, spans = table["cells"], table["spans"]
-            n_rows = max(r for r, _ in cells) + 1
-            n_cols = max(max(c for _, c in cells) + 1, max(spans.values(), default=1))
-
-            def full_width(r: int) -> bool:  # 한 칸이 모든 열을 덮는 행 (예: 표 아래 "비고 :")
-                return spans.get((r, 0), 1) >= n_cols and n_cols > 1
-
-            top, bottom = 0, n_rows
-            while top < bottom and full_width(top):
-                top += 1
-            while bottom > top and full_width(bottom - 1):
-                bottom -= 1
-            blocks.extend(" ".join(cells.get((r, 0), [])) for r in range(0, top))
-            rows = [[" ".join(cells.get((r, c), [])) for c in range(n_cols)] for r in range(top, bottom)]
-            md = table_to_markdown(rows)
-            if md:
-                blocks.append(md)
-            blocks.extend(" ".join(cells.get((r, 0), [])) for r in range(bottom, n_rows))
+        if table:
+            blocks.extend(grid_to_blocks(table["cells"], table["spans"]))
         table = None
 
     for tag, level, payload in iter_hwp_records(data):
