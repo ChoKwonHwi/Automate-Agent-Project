@@ -21,6 +21,7 @@ from retrieval.refs import normalize_ref
 from .definitions import definition_blocks, matching_definitions
 from .llm import OllamaChat
 from .numbers import ungrounded_numbers
+from .verify import unsupported_periods, verify_quotes
 from .prompts import ANSWER_SCHEMA, build_messages
 
 MIN_SCORE = 0.45        # 이 점수 미만이면 검색 단계에서 바로 거절
@@ -30,6 +31,7 @@ MAX_BLOCKS = 5          # LLM 에 넣는 근거 조항 수
 CHAR_BUDGET = 6000
 BLOCK_CAP = 1800        # 조항 하나가 예산을 독차지하지 않도록 조항당 상한
 REFUSAL_TEXT = "등록된 규정에서 이 질문에 대한 근거를 찾지 못했습니다. 담당 부서에 확인해 주세요."
+UNVERIFIED_TEXT = "규정 원문에서 질문하신 내용을 확인하지 못해 답변하지 않습니다. 담당 부서에 확인해 주세요."
 
 
 @dataclass
@@ -41,7 +43,10 @@ class AnswerResult:
     invalid_citations: list[str] = field(default_factory=list)
     ungrounded_numbers: list[float] = field(default_factory=list)  # 질문 · 근거에 없는 숫자
     context: list[dict] = field(default_factory=list)   # [{"ref", "score", "chars"}]
-    refused_by: str | None = None                        # "retrieval" | "llm" | None
+    refused_by: str | None = None                        # "retrieval" | "llm" | "verification" | "error" | None
+    quotes: list[dict] = field(default_factory=list)              # 원문 대조를 통과한 근거 인용문
+    rejected_quotes: list[dict] = field(default_factory=list)     # 원문에 없는 인용문 (모델이 지어낸 문장)
+    raw_answer: str = ""                                          # 검증 거절 전 모델 답 (디버깅 · 평가용)
     warnings: list[str] = field(default_factory=list)
     search_ms: float = 0.0
     llm_ms: float = 0.0
@@ -210,18 +215,34 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
     citations, invalid = validate_citations([str(c) for c in data.get("citations", [])], blocks)
     answerable = bool(data["answerable"])
     answer_text = str(data["answer"]).strip()
+    quotes, rejected = verify_quotes([q for q in data.get("quotes", []) if isinstance(q, dict)], blocks)
+    if rejected:
+        warnings.append(f"원문에 없는 인용문 {len(rejected)}개")
+    refused_by = None if answerable else "llm"
+    raw_answer = answer_text
+    if answerable:  # 모델이 답하겠다고 해도, 근거 문장이 원문에 있고 기한 · 기간이 그 문장에 있어야 답한다
+        missing_periods = unsupported_periods(answer_text, question, quotes)
+        if not quotes:
+            reason = "검증된 근거 인용문 없음"
+        elif missing_periods:
+            reason = f"근거 인용문에 없는 기한 · 기간 {missing_periods}"
+        else:
+            reason = None
+        if reason:
+            warnings.append(f"검증 거절: {reason}")
+            answerable, refused_by, answer_text = False, "verification", UNVERIFIED_TEXT
     if invalid:
         warnings.append(f"근거에 없는 조항을 인용함: {invalid}")
     if answerable and not citations:
         warnings.append("답변했지만 유효한 인용이 없음")
-    unknown = ungrounded_numbers(answer_text, question, [b["text"] for b in blocks])
+    unknown = ungrounded_numbers(answer_text, question, [b["text"] for b in blocks]) if answerable else []
     if unknown:  # 지어낸 숫자 또는 계산 결과 — 계산은 W4 계산 도구가 맡는다
         warnings.append(f"근거에 없는 숫자: {[f'{n:,.2f}'.rstrip('0').rstrip('.') for n in unknown]} (계산 결과가 아니면 환각)")
     return AnswerResult(
         question=question, answerable=answerable, answer=answer_text,
         citations=citations if answerable else [], invalid_citations=invalid, ungrounded_numbers=unknown,
-        context=context,
-        refused_by=None if answerable else "llm", warnings=warnings,
+        context=context, quotes=quotes, rejected_quotes=rejected, raw_answer=raw_answer,
+        refused_by=refused_by, warnings=warnings,
         search_ms=search_ms, llm_ms=resp.total_ms, prompt_tokens=resp.prompt_tokens,
     )
 
@@ -231,7 +252,11 @@ def render(result: AnswerResult, blocks_meta: dict[str, dict] | None = None) -> 
     if result.citations:
         lines += ["", "출처: " + " · ".join(result.citations)]
     if not result.answerable:
-        lines += ["", f"(거절: {'검색 점수 낮음' if result.refused_by == 'retrieval' else '근거 부족 — LLM 판단'})"]
+        reason = {"retrieval": "검색 점수 낮음", "llm": "근거 부족 — LLM 판단",
+                  "verification": "근거 인용 검증 실패", "error": "생성 오류"}.get(result.refused_by, "")
+        lines += ["", f"(거절: {reason})"]
+    for q in result.quotes:
+        lines.append(f"  📎 [{q['ref']}] {q['text']}")
     for w in result.warnings:
         lines.append(f"⚠️ {w}")
     lines += ["", "근거 후보: " + " | ".join(

@@ -70,6 +70,8 @@ def grade(item: GoldenItem, result) -> dict:
            "refused_by": result.refused_by, "answer": result.answer, "citations": result.citations,
            "invalid_citations": result.invalid_citations, "warnings": result.warnings,
            "ungrounded_numbers": result.ungrounded_numbers,
+           "raw_answer": getattr(result, "raw_answer", ""), "quotes": getattr(result, "quotes", []),
+           "rejected_quotes": getattr(result, "rejected_quotes", []),
            "llm_ms": round(result.llm_ms), "prompt_tokens": result.prompt_tokens,
            "context": [c["ref"] for c in result.context]}
     if item.type == "refuse":
@@ -106,6 +108,7 @@ def summarize(rows: list[dict]) -> dict:
         "ungrounded_items": sum(1 for r in rows if r.get("ungrounded_numbers")),
         "invalid_citation_items": sum(1 for r in rows if r["invalid_citations"]),
         "errors": sum(1 for r in rows if r["refused_by"] == "error"),
+        "verification_refusals": sum(1 for r in rows if r["refused_by"] == "verification"),
         "llm_p50_ms": statistics.median(llm) if llm else None,
         "llm_p95_ms": llm[max(0, int(len(llm) * 0.95) - 1)] if llm else None,
         "avg_prompt_tokens": statistics.mean(r["prompt_tokens"] for r in rows if r["prompt_tokens"]) if llm else None,
@@ -137,6 +140,7 @@ def build_report(name: str, items: list[GoldenItem], runs: dict[str, list[dict]]
         ("근거에 없는 숫자를 쓴 답변 (문항 수) ↓", "0 (계산값 제외)", "ungrounded_items", False),
         ("근거에 없는 조항 인용 (문항 수) ↓", "0", "invalid_citation_items", False),
         ("응답 오류 (JSON 실패) ↓", "0", "errors", False),
+        ("검증 단계 거절 (문항 수, 인용문 대조 실패)", "-", "verification_refusals", False),
         ("생성 지연 p50 (ms) ↓", "-", "llm_p50_ms", False),
         ("생성 지연 p95 (ms) ↓", "≤ 10,000", "llm_p95_ms", False),
         ("평균 입력 토큰", "-", "avg_prompt_tokens", False),
@@ -175,7 +179,9 @@ def build_report(name: str, items: list[GoldenItem], runs: dict[str, list[dict]]
             if r["type"] == "refuse" and not r["correct_refusal"]:
                 problems.append(f"- **{m}** `{r['id']}` 거절해야 하는데 답변: {r['answer'][:120]}")
             elif r["type"] != "refuse" and r["false_refusal"]:
-                problems.append(f"- **{m}** `{r['id']}` 오거절: {r['answer'][:120]} (근거: {', '.join(r['context'][:3])})")
+                how = "검증 거절" if r["refused_by"] == "verification" else "오거절"
+                shown = r.get("raw_answer") or r["answer"]
+                problems.append(f"- **{m}** `{r['id']}` {how}: {shown[:120]} (근거: {', '.join(r['context'][:3])})")
             elif r.get("ungrounded_numbers"):
                 problems.append(f"- **{m}** `{r['id']}` 근거에 없는 숫자 {r['ungrounded_numbers']}: {r['answer'][:120]}")
             elif r.get("numeric") is not None and r["numeric"] < 1.0:
@@ -200,8 +206,11 @@ def build_review(name: str, items: list[GoldenItem], runs: dict[str, list[dict]]
         for m in models:
             r = by_id[m][item.id]
             cite = f" — 인용: {', '.join(r['citations'])}" if r["citations"] else ""
-            tag = "" if r["answerable"] else " 🚫거절"
-            out.append(f"- [ ] **{m}**{tag}: {r['answer']}{cite}")
+            tag = "" if r["answerable"] else (" 🚫검증거절" if r["refused_by"] == "verification" else " 🚫거절")
+            shown = r["answer"]
+            if r["refused_by"] == "verification" and r.get("raw_answer"):
+                shown += f" — (거절 전 모델 답: {r['raw_answer']})"
+            out.append(f"- [ ] **{m}**{tag}: {shown}{cite}")
         out.append("")
     return "\n".join(out)
 

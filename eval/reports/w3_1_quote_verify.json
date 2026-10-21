@@ -1,0 +1,1218 @@
+{
+ "qwen3:8b": [
+  {
+   "id": "q001",
+   "type": "numeric",
+   "category": "여비",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "대리가 서울로 출장할 때 1일당 일비는 25,000원, 식비는 25,000원이며, 1야당 숙박비 상한액은 100,000원이다. (여비규정 제16조)",
+   "citations": [
+    "여비규정 제16조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "대리가 서울로 출장할 때 1일당 일비는 25,000원, 식비는 25,000원이며, 1야당 숙박비 상한액은 100,000원이다. (여비규정 제16조)",
+   "quotes": [
+    {
+     "ref": "여비규정 별표1",
+     "text": "부서장 이하 | 실비 (일반실) | 실비 (2등급) | 실비 | 실비 | 25,000 | 실 비 (상한액 : 서울특별시 100,000 광역시 및 제주특별자치도 80,000 그 외 지역은 70,000) | 25,000"
+    },
+    {
+     "ref": "여비규정 제18조",
+     "text": "근무지내 국내출장의 경우에는 제16조의 규정에 불구하고 출장여행시간이 4시간 이상인 자에 대하여는 2만원을 지급하고, 4시간 미만인 자에 대하여는 1만원을 지급한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 7981,
+   "prompt_tokens": 3722,
+   "context": [
+    "여비규정 제16조",
+    "여비규정 제18조",
+    "여비규정 별표1",
+    "여비규정 별표2",
+    "여비규정 제17조"
+   ],
+   "false_refusal": false,
+   "hit": false,
+   "precision": 0.0,
+   "recall": 0.0,
+   "numeric": 1.0,
+   "numeric_missing": [],
+   "conclusion": true
+  },
+  {
+   "id": "q002",
+   "type": "fact",
+   "category": "여비",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "국외여비 지급표의 국가 및 도시별 등급구분에 없는 국가는 여행 또는 근무예정지에서 1의 국가의 수도까지의 거리가 가장 가까운 국가의 등급을 적용한다.(근거 1)",
+   "citations": [
+    "여비규정 별표2"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "국외여비 지급표의 국가 및 도시별 등급구분에 없는 국가는 여행 또는 근무예정지에서 1의 국가의 수도까지의 거리가 가장 가까운 국가의 등급을 적용한다.(근거 1)",
+   "quotes": [
+    {
+     "ref": "여비규정 별표2",
+     "text": "2. 1의 국가 및 도시별 등급구분에 없는 국가는 여행 또는 근무예정지에서 1의 국가의 수도까지의 거리가 가장 가까운 국가의 등급을 적용 한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 4793,
+   "prompt_tokens": 3421,
+   "context": [
+    "여비규정 별표2",
+    "여비규정 제22조",
+    "여비규정 별표4",
+    "여비규정 별표6",
+    "여비규정 제28조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q003",
+   "type": "refuse",
+   "category": "민원",
+   "answerable": false,
+   "refused_by": "llm",
+   "answer": "규정에서 확인되지 않는다. 지방조직이 본사 관련 부서에 보고해야 하는 경우, 본사가 지시를 내리는 기한은 명시되지 않았다.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "규정에서 확인되지 않는다. 지방조직이 본사 관련 부서에 보고해야 하는 경우, 본사가 지시를 내리는 기한은 명시되지 않았다.",
+   "quotes": [],
+   "rejected_quotes": [],
+   "llm_ms": 1975,
+   "prompt_tokens": 1962,
+   "context": [
+    "민원처리예규 제7조",
+    "감사규정 제26조",
+    "민원처리예규 제2조",
+    "인사규정세칙 제80조",
+    "민원처리예규 제13조"
+   ],
+   "correct_refusal": true
+  },
+  {
+   "id": "q004",
+   "type": "multi",
+   "category": "민원",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "공단은 민원인이 법정민원이 아닌 동일한 내용의 민원을 정당한 사유 없이 3회 이상 반복하여 제출한 경우, 2회 이상 처리결과를 통지하고, 그 후에 접수되는 민원에 대하여는 종결처리할 수 있습니다. 다른 행정기관으로부터 이송된 민원도 동일한 기준으로 판단하며, 민원의 성격, 내용적 유사성, 답변의 일관성 등을 종합적으로 고려합니다. 종결 처리 시에는 지체 없이 민원주관부서장에게 통보해야 합니다. (민원처리예규 제14조)",
+   "citations": [
+    "민원처리예규 제14조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "공단은 민원인이 법정민원이 아닌 동일한 내용의 민원을 정당한 사유 없이 3회 이상 반복하여 제출한 경우, 2회 이상 처리결과를 통지하고, 그 후에 접수되는 민원에 대하여는 종결처리할 수 있습니다. 다른 행정기관으로부터 이송된 민원도 동일한 기준으로 판단하며, 민원의 성격, 내용적 유사성, 답변의 일관성 등을 종합적으로 고려합니다. 종결 처리 시에는 지체 없이 민원주관부서장에게 통보해야 합니다. (민원처리예규 제14조)",
+   "quotes": [
+    {
+     "ref": "민원처리예규 제14조",
+     "text": "민원인이 동일한 내용의 민원(법정민원을 제외한다. 이하 이 조에서 같다)을 정당한 사유 없이 3회 이상 반복하여 제출한 경우에는 2회 이상 그 처리결과를 통지하고, 그 후에 접수되는 민원에 대하여는 종결처리할 수 있다."
+    },
+    {
+     "ref": "민원처리예규 제14조",
+     "text": "민원처리부서장은 민원인이 2개 이상의 행정기관 등에 제출한 동일한 내용의 민원을 다른 행정기관으로부터 이송받은 경우에도 제1항을 준용하여 처리 할 수 있다."
+    },
+    {
+     "ref": "민원처리예규 제14조",
+     "text": "제1항 및 제2항에 따른 동일한 내용의 민원인지 여부에 대하여는 해당 민원의 성격, 종전 민원과의 내용적 유사성ㆍ관련성 및 종전 민원과 동일한 답변을 할 수 밖에 없는 사정 등을 종합적으로 고려하여 결정하여야 한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 9754,
+   "prompt_tokens": 2241,
+   "context": [
+    "민원처리예규 제14조",
+    "민원처리예규 제24조",
+    "민원처리예규 제10조",
+    "민원처리예규 제7조",
+    "민원처리예규 제22조",
+    "민원처리예규 제2조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q005",
+   "type": "numeric",
+   "category": "보수",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "연봉월액은 5,000,000원이며, 30일인 달의 연봉 일할계산액은 하루에 166,666원이다. (보수규정 제2조)",
+   "citations": [
+    "보수규정 제2조"
+   ],
+   "invalid_citations": [],
+   "warnings": [
+    "근거에 없는 숫자: ['5,000,000', '166,666'] (계산 결과가 아니면 환각)"
+   ],
+   "ungrounded_numbers": [
+    5000000.0,
+    166666.0
+   ],
+   "raw_answer": "연봉월액은 5,000,000원이며, 30일인 달의 연봉 일할계산액은 하루에 166,666원이다. (보수규정 제2조)",
+   "quotes": [
+    {
+     "ref": "보수규정 제2조",
+     "text": "6. \"연봉월액\"이란 연봉에서 매월 지급되는 금액으로서 연봉을 12로 나눈 금액을 말한다."
+    },
+    {
+     "ref": "보수규정 제2조",
+     "text": "7. \"연봉의 일할계산\"이란 연봉월액을 그 달의 일수로 나누어 계산하는 것을 말한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 5826,
+   "prompt_tokens": 3387,
+   "context": [
+    "보수규정 제30조",
+    "보수규정 제29조",
+    "보수규정 별표6",
+    "보수규정 별표7",
+    "보수규정 별표1의6",
+    "보수규정 제2조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0,
+   "numeric": 0.33333333333333337,
+   "numeric_missing": [
+    12.0,
+    166666.67
+   ],
+   "conclusion": false
+  },
+  {
+   "id": "q006",
+   "type": "multi",
+   "category": "보수",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "6급 경력직의 초임기준급등급은 12등급으로 정하며, 경력 중복 시 유리한 경력 하나만 반영한다. 특별승급 사유가 있으면 이를 가감한다. 잔여기간은 다음 승급기간에 산입한다. 기준급월액은 별표 1의7에 따라 적용한다. (보수규정 제6조, 보수규정 제3조)",
+   "citations": [
+    "보수규정 제6조",
+    "보수규정 제3조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "6급 경력직의 초임기준급등급은 12등급으로 정하며, 경력 중복 시 유리한 경력 하나만 반영한다. 특별승급 사유가 있으면 이를 가감한다. 잔여기간은 다음 승급기간에 산입한다. 기준급월액은 별표 1의7에 따라 적용한다. (보수규정 제6조, 보수규정 제3조)",
+   "quotes": [
+    {
+     "ref": "보수규정 제6조",
+     "text": "신규채용된 6급 이하 신입직의 초임기준급등급 상한을 7등급으로 하고, 6급 이하 경력직은 12등급으로 한다."
+    },
+    {
+     "ref": "보수규정 제6조",
+     "text": "초임기준급등급의 획정에 반영되지 아니한 잔여기간이 있으면 그 기간은 다음 승급기간에 산입한다."
+    },
+    {
+     "ref": "보수규정 제3조",
+     "text": "직원의 기준급월액은 별표 1의6 및 별표 1의7에 명시된 금액으로 하며, 직제규정세칙 별표 1에 따른 수도통합운영센터 수탁사업 교대제 직원에게는 별표 1의7을 적용한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 9360,
+   "prompt_tokens": 3421,
+   "context": [
+    "보수규정 제6조",
+    "보수규정 제3조",
+    "보수규정 별표2",
+    "보수규정 별표1의7",
+    "보수규정 제7조",
+    "보수규정 제2조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q007",
+   "type": "fact",
+   "category": "인사",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "사무직·기술직 3급 승진자격시험은 시험과목을 전부 응시할 필요 없이 일부만 골라서 응시할 수 있습니다. (인사규정세칙 제42조)",
+   "citations": [
+    "인사규정세칙 제42조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "사무직·기술직 3급 승진자격시험은 시험과목을 전부 응시할 필요 없이 일부만 골라서 응시할 수 있습니다. (인사규정세칙 제42조)",
+   "quotes": [
+    {
+     "ref": "인사규정세칙 제42조",
+     "text": "사무직ㆍ기술직 3급으로의 승진자격시험은 응시자가 시험과목의 일부만을 선택하여 응시할 수 있다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 4401,
+   "prompt_tokens": 1944,
+   "context": [
+    "인사규정세칙 제42조",
+    "인사규정세칙 제45조",
+    "인사규정세칙 제43조",
+    "인사규정 제22조",
+    "인사규정세칙 제20조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q008",
+   "type": "numeric",
+   "category": "인사",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "승진자격시험은 과목별로 100점 만점 중 60점 이상 득점해야 합격이다.(인사규정세칙 제44조)",
+   "citations": [
+    "인사규정세칙 제44조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "승진자격시험은 과목별로 100점 만점 중 60점 이상 득점해야 합격이다.(인사규정세칙 제44조)",
+   "quotes": [
+    {
+     "ref": "인사규정세칙 제44조",
+     "text": "매 과목 6할 이상 득점한 자를 합격자로 한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 3368,
+   "prompt_tokens": 2125,
+   "context": [
+    "인사규정세칙 제44조",
+    "인사규정세칙 제20조",
+    "교육훈련규정 제29조",
+    "인사규정세칙 제43조",
+    "인사규정 제26조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0,
+   "numeric": 0.5,
+   "numeric_missing": [
+    6.0
+   ],
+   "conclusion": true
+  },
+  {
+   "id": "q009",
+   "type": "fact",
+   "category": "취업",
+   "answerable": false,
+   "refused_by": "llm",
+   "answer": "규정에서 확인되지 않는다. 다만, 퇴직예정자인 경우 퇴직예정 1개월 전 취업예정 업체명 등을 보고해야 하며, 비밀누설금지와 직무관련 정보 이용 제한이 적용된다.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "규정에서 확인되지 않는다. 다만, 퇴직예정자인 경우 퇴직예정 1개월 전 취업예정 업체명 등을 보고해야 하며, 비밀누설금지와 직무관련 정보 이용 제한이 적용된다.",
+   "quotes": [],
+   "rejected_quotes": [],
+   "llm_ms": 7264,
+   "prompt_tokens": 2280,
+   "context": [
+    "임직원행동강령 제23조",
+    "임직원행동강령 제30조의3",
+    "취업규정 제5조",
+    "임직원행동강령 제15조",
+    "임직원행동강령 제26조"
+   ],
+   "false_refusal": true
+  },
+  {
+   "id": "q010",
+   "type": "refuse",
+   "category": "취업",
+   "answerable": false,
+   "refused_by": "llm",
+   "answer": "규정에서 확인되지 않는다. 다만, 이전비 신청 시에는 이전한 날의 다음 날부터 기산하여 6개월 이내에 신청해야 한다(여비규정 제20조).",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "규정에서 확인되지 않는다. 다만, 이전비 신청 시에는 이전한 날의 다음 날부터 기산하여 6개월 이내에 신청해야 한다(여비규정 제20조).",
+   "quotes": [],
+   "rejected_quotes": [],
+   "llm_ms": 2533,
+   "prompt_tokens": 2148,
+   "context": [
+    "취업규정 제9조",
+    "여비규정 제20조",
+    "민원처리예규 제7조",
+    "감사규정 제26조",
+    "여비규정 제19조"
+   ],
+   "correct_refusal": true
+  },
+  {
+   "id": "q011",
+   "type": "fact",
+   "category": "임직원",
+   "answerable": false,
+   "refused_by": "llm",
+   "answer": "규정에서 확인되지 않는다. 다만, 임직원행동강령 제10조 및 제14조는 인사에 관한 청탁행위를 금지하고 있으므로, 승진에 유리하도록 지인에게 청탁하는 행위는 금지된다.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "규정에서 확인되지 않는다. 다만, 임직원행동강령 제10조 및 제14조는 인사에 관한 청탁행위를 금지하고 있으므로, 승진에 유리하도록 지인에게 청탁하는 행위는 금지된다.",
+   "quotes": [],
+   "rejected_quotes": [],
+   "llm_ms": 3146,
+   "prompt_tokens": 2495,
+   "context": [
+    "임직원행동강령 제10조",
+    "임직원행동강령 제14조",
+    "임직원행동강령 제23조",
+    "임직원행동강령 제9조",
+    "임직원행동강령 제6조의6"
+   ],
+   "false_refusal": true
+  },
+  {
+   "id": "q012",
+   "type": "numeric",
+   "category": "임직원",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "목적 외로 사용한 금액은 80,000원입니다. (임직원행동강령 제8조)",
+   "citations": [
+    "임직원행동강령 제8조"
+   ],
+   "invalid_citations": [],
+   "warnings": [
+    "근거에 없는 숫자: ['80,000'] (계산 결과가 아니면 환각)"
+   ],
+   "ungrounded_numbers": [
+    80000.0
+   ],
+   "raw_answer": "목적 외로 사용한 금액은 80,000원입니다. (임직원행동강령 제8조)",
+   "quotes": [
+    {
+     "ref": "임직원행동강령 제8조",
+     "text": "임직원은 출장비, 업무추진비 등 업무수행을 위한 예산을 목적 외의 용도로 사용하여 공단에 재산상 손해를 입혀서는 아니 된다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 3963,
+   "prompt_tokens": 2562,
+   "context": [
+    "임직원행동강령 제8조",
+    "취업규정 제43조",
+    "여비규정 제30조",
+    "보수규정 제2조",
+    "인사규정 별표4"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0,
+   "numeric": 1.0,
+   "numeric_missing": [],
+   "conclusion": true
+  },
+  {
+   "id": "q013",
+   "type": "numeric",
+   "category": "경영관리",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "사업추진 및 예산집행계획은 통지받은 날로부터 30일 이내에 수립해야 합니다. (경영관리규정 제7조)",
+   "citations": [
+    "경영관리규정 제7조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "사업추진 및 예산집행계획은 통지받은 날로부터 30일 이내에 수립해야 합니다. (경영관리규정 제7조)",
+   "quotes": [
+    {
+     "ref": "경영관리규정 제7조",
+     "text": "매년도 사업계획 및 예산 승인통지를 받은 날로부터 30일 이내에 사업추진 및 예산집행계획을 수립하여야 한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 3273,
+   "prompt_tokens": 2242,
+   "context": [
+    "경영관리규정 제7조",
+    "회계규정 제18조",
+    "회계규정 제17조",
+    "경영관리규정 제10조",
+    "회계규정 제21조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0,
+   "numeric": 1.0,
+   "numeric_missing": [],
+   "conclusion": true
+  },
+  {
+   "id": "q014",
+   "type": "multi",
+   "category": "경영관리",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "부서장은 수정 사유를 경영계획부서장에게 통보한 후 자체 수정안을 시행할 수 있으나, 수정안은 경영계획부서장이 종합·조정하여 경영계획(안)을 수립하고 이사장의 결재를 받아 확정·시행해야 한다. (경영관리규정 제8조)",
+   "citations": [
+    "경영관리규정 제4조",
+    "경영관리규정 제8조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "부서장은 수정 사유를 경영계획부서장에게 통보한 후 자체 수정안을 시행할 수 있으나, 수정안은 경영계획부서장이 종합·조정하여 경영계획(안)을 수립하고 이사장의 결재를 받아 확정·시행해야 한다. (경영관리규정 제8조)",
+   "quotes": [
+    {
+     "ref": "경영관리규정 제4조",
+     "text": "경영계획의 운영기간 중 정부시책 또는 업무환경의 변화로 경영계획의 변경이 필요한 경우에는 수정ㆍ보완하여야 한다."
+    },
+    {
+     "ref": "경영관리규정 제8조",
+     "text": "각 부서의 장은 제1항에 따른 지침에 따라 소관업무에 대한 개별계획을 수립하여 경영계획부서장에게 제출하여야 하며, 그 계획을 변경하고자 하는 경우에도 또한 같다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 5813,
+   "prompt_tokens": 2053,
+   "context": [
+    "경영관리규정 제4조",
+    "경영관리규정 제8조",
+    "경영관리규정 제17조",
+    "교육훈련규정 제7조",
+    "경영관리규정 제3조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q015",
+   "type": "fact",
+   "category": "경영관리",
+   "answerable": false,
+   "refused_by": "llm",
+   "answer": "규정에서 확인되지 않는다. 경영목표 관리 의무는 부서장이 목표와 업무를 균형있게 배분하고 추진실적을 분석ㆍ관리해야 한다고 명시되어 있으나, 단순히 업무를 나눠준 것만으로는 의무를 다한 것으로 보지 않는다.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "규정에서 확인되지 않는다. 경영목표 관리 의무는 부서장이 목표와 업무를 균형있게 배분하고 추진실적을 분석ㆍ관리해야 한다고 명시되어 있으나, 단순히 업무를 나눠준 것만으로는 의무를 다한 것으로 보지 않는다.",
+   "quotes": [],
+   "rejected_quotes": [],
+   "llm_ms": 2686,
+   "prompt_tokens": 1940,
+   "context": [
+    "경영관리규정 제9조",
+    "교육훈련규정 제5조",
+    "경영관리규정 제10조",
+    "교육훈련규정 제6조",
+    "경영관리규정 제15조"
+   ],
+   "false_refusal": true
+  },
+  {
+   "id": "q016",
+   "type": "fact",
+   "category": "복지후생",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "정기 건강진단을 이미 받았지만, 필요할 경우 추가로 건강진단을 실시할 수 있습니다. (복지후생세칙 제6조)",
+   "citations": [
+    "복지후생세칙 제6조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "정기 건강진단을 이미 받았지만, 필요할 경우 추가로 건강진단을 실시할 수 있습니다. (복지후생세칙 제6조)",
+   "quotes": [
+    {
+     "ref": "복지후생세칙 제6조",
+     "text": "임직원에 대하여는 「산업안전보건법」에서 정하는 건강진단을 정기적으로 실시한다. 다만, 필요한 경우에는 수시로 건강진단을 실시할 수 있다."
+    },
+    {
+     "ref": "취업규정 제44조",
+     "text": "직원에 대하여는 매년 정기적으로 건강진단을 실시하여야 한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 5088,
+   "prompt_tokens": 3054,
+   "context": [
+    "복지후생세칙 제6조",
+    "취업규정 제44조",
+    "민원처리예규 별표",
+    "인사규정세칙 제57조",
+    "감사규정 제28조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q017",
+   "type": "fact",
+   "category": "복지후생",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "공단은 독신직원용 합숙소를 직접 짓지 않고 임차해서 운영할 수 있습니다. (복지후생세칙 제9조, 보수규정 제41조)",
+   "citations": [
+    "복지후생세칙 제9조",
+    "보수규정 제41조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "공단은 독신직원용 합숙소를 직접 짓지 않고 임차해서 운영할 수 있습니다. (복지후생세칙 제9조, 보수규정 제41조)",
+   "quotes": [
+    {
+     "ref": "복지후생세칙 제9조",
+     "text": "임직원의 복지후생을 위하여 필요한 경우에는 예산의 범위에서 다음 각 호의 후생시설을 설치하거나 임차하여 운영할 수 있다."
+    },
+    {
+     "ref": "보수규정 제41조",
+     "text": "이사장은 예산의 범위에서 임직원의 보건ㆍ안전ㆍ여가선용 그 밖에 복지후생을 위한 시설을 설치ㆍ운영하거나 필요한 현물을 지급 또는 대여할 수 있다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 5760,
+   "prompt_tokens": 3215,
+   "context": [
+    "복지후생세칙 제9조",
+    "보수규정 제41조",
+    "인사규정세칙 제57조",
+    "인사규정 제64조의4",
+    "취업규정 제27조의2"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 0.5,
+   "recall": 1.0
+  },
+  {
+   "id": "q018",
+   "type": "fact",
+   "category": "회계",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "지방조직의 부서장은 부문예산관리자에 해당한다. 예산은 분기별 배정을 원칙으로 하되, 사업계획의 변경에 따라 연간 또는 수시배정할 수 있으며, 예산관리자는 경영정보시스템(MIS) 등을 통하여 예산을 효율적으로 관리해야 한다.(회계규정 제15조, 제21조, 제17조)",
+   "citations": [
+    "회계규정 제15조",
+    "회계규정 제21조",
+    "회계규정 제17조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "지방조직의 부서장은 부문예산관리자에 해당한다. 예산은 분기별 배정을 원칙으로 하되, 사업계획의 변경에 따라 연간 또는 수시배정할 수 있으며, 예산관리자는 경영정보시스템(MIS) 등을 통하여 예산을 효율적으로 관리해야 한다.(회계규정 제15조, 제21조, 제17조)",
+   "quotes": [
+    {
+     "ref": "회계규정 제15조",
+     "text": "본사 및 지방조직의 각 부서의 장을 부문예산관리자로 한다."
+    },
+    {
+     "ref": "회계규정 제17조",
+     "text": "예산관리자는 기후에너지환경부장관의 승인을 얻은 사업계획과 예산을 변경하고자 할 때에는 변경내용과 그 사유를 기재한 서류를 이사회 의결을 거쳐 기후에너지환경부장관에게 제출하고 승인을 받아야 한다."
+    },
+    {
+     "ref": "회계규정 제21조",
+     "text": "예산은 분기별 배정을 원칙으로 하되, 사업계획의 변경에 따라 연간 또는 수시배정할 수 있다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 7884,
+   "prompt_tokens": 2201,
+   "context": [
+    "회계규정 제15조",
+    "회계규정 제17조",
+    "회계규정 제21조",
+    "회계규정 제16조",
+    "회계규정 제18조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 0.3333333333333333,
+   "recall": 1.0
+  },
+  {
+   "id": "q019",
+   "type": "refuse",
+   "category": "회계",
+   "answerable": false,
+   "refused_by": "llm",
+   "answer": "규정에서 확인되지 않는다. 예산요구서 제출 시 사용해야 하는 서식 번호 및 첨부서류 목록에 대한 구체적인 정보는 제공되지 않았다.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "규정에서 확인되지 않는다. 예산요구서 제출 시 사용해야 하는 서식 번호 및 첨부서류 목록에 대한 구체적인 정보는 제공되지 않았다.",
+   "quotes": [],
+   "rejected_quotes": [],
+   "llm_ms": 2289,
+   "prompt_tokens": 2538,
+   "context": [
+    "회계규정 제17조",
+    "회계규정 제21조",
+    "회계규정 제15조",
+    "회계규정 제14조",
+    "회계규정 제44조"
+   ],
+   "correct_refusal": true
+  },
+  {
+   "id": "q020",
+   "type": "fact",
+   "category": "회계",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "공단이 건물을 기증받는 경우에도 취득에 해당하므로 이사회 의결을 거쳐야 합니다. (회계규정 제80조, 제81조)",
+   "citations": [
+    "회계규정 제80조",
+    "회계규정 제81조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "공단이 건물을 기증받는 경우에도 취득에 해당하므로 이사회 의결을 거쳐야 합니다. (회계규정 제80조, 제81조)",
+   "quotes": [
+    {
+     "ref": "회계규정 제80조",
+     "text": "공단의 기본재산, 그 밖의 토지 및 건물을 취득하고자 할 때에는 이사회의 의결을 거쳐야 한다."
+    },
+    {
+     "ref": "회계규정 제81조",
+     "text": "비유동자산의 취득가액은 다음 각 호에 따른다."
+    },
+    {
+     "ref": "회계규정 제80조",
+     "text": "비유동자산의 취득은 비유동자산을 신설ㆍ증설 또는 제조하기 위한 구입, 제작, 교환, 수증(受贈) 등을 말한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 5147,
+   "prompt_tokens": 2140,
+   "context": [
+    "회계규정 제80조",
+    "회계규정 제81조",
+    "인사규정 제57조",
+    "회계규정 제88조",
+    "인사규정세칙 제56조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 0.5,
+   "recall": 1.0
+  },
+  {
+   "id": "q021",
+   "type": "numeric",
+   "category": "회계",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "취득가액은 55,000,000원입니다(50,000,000원 + 2,000,000원 + 3,000,000원)(회계규정 제81조).",
+   "citations": [
+    "회계규정 제81조"
+   ],
+   "invalid_citations": [],
+   "warnings": [
+    "근거에 없는 숫자: ['55,000,000'] (계산 결과가 아니면 환각)"
+   ],
+   "ungrounded_numbers": [
+    55000000.0
+   ],
+   "raw_answer": "취득가액은 55,000,000원입니다(50,000,000원 + 2,000,000원 + 3,000,000원)(회계규정 제81조).",
+   "quotes": [
+    {
+     "ref": "회계규정 제81조",
+     "text": "1. 구입한 것은 구입가격에 부대비 및 설치비를 가산한 금액"
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 3360,
+   "prompt_tokens": 2067,
+   "context": [
+    "회계규정 제81조",
+    "회계규정 제74조",
+    "회계규정 제80조",
+    "회계규정 제95조",
+    "회계규정 제91조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0,
+   "numeric": 1.0,
+   "numeric_missing": [],
+   "conclusion": true
+  },
+  {
+   "id": "q022",
+   "type": "fact",
+   "category": "교육훈련",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "사내강사로 강의한 시간은 교육이수실적으로 인정됩니다(교육훈련규정 제59조).",
+   "citations": [
+    "교육훈련규정 제59조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "사내강사로 강의한 시간은 교육이수실적으로 인정됩니다(교육훈련규정 제59조).",
+   "quotes": [
+    {
+     "ref": "교육훈련규정 제59조",
+     "text": "사내강사의 강의시간은 교육이수실적으로 인정한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 2268,
+   "prompt_tokens": 1690,
+   "context": [
+    "교육훈련규정 제59조",
+    "교육훈련규정 제55조",
+    "교육훈련규정 제57조",
+    "교육훈련규정 제56조",
+    "교육훈련규정 제54조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q023",
+   "type": "fact",
+   "category": "교육훈련",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "주관부서장은 사내강사가 제출한 교안을 검토하고 수정하라고 할 수 있습니다. (교육훈련규정 제57조)",
+   "citations": [
+    "교육훈련규정 제57조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "주관부서장은 사내강사가 제출한 교안을 검토하고 수정하라고 할 수 있습니다. (교육훈련규정 제57조)",
+   "quotes": [
+    {
+     "ref": "교육훈련규정 제57조",
+     "text": "주관부서장은 교육훈련 실시 전에 교육훈련을 실시할 사내강사로부터 교안을 사전 제출하도록 하고, 필요하다고 인정되는 경우 교안을 수정ㆍ보완하게 할 수 있다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 3153,
+   "prompt_tokens": 1706,
+   "context": [
+    "교육훈련규정 제58조",
+    "교육훈련규정 제57조",
+    "교육훈련규정 제55조",
+    "교육훈련규정 제60조",
+    "교육훈련규정 제20조",
+    "교육훈련규정 제3조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q024",
+   "type": "numeric",
+   "category": "교육훈련",
+   "answerable": false,
+   "refused_by": "verification",
+   "answer": "규정 원문에서 질문하신 내용을 확인하지 못해 답변하지 않습니다. 담당 부서에 확인해 주세요.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [
+    "원문에 없는 인용문 1개",
+    "검증 거절: 근거 인용문에 없는 기한 · 기간 ['4시간']"
+   ],
+   "ungrounded_numbers": [],
+   "raw_answer": "강사료는 20,000원 × 4시간 = 80,000원입니다. (교육훈련규정 별표4)",
+   "quotes": [
+    {
+     "ref": "교육훈련규정 별표4",
+     "text": "사내강사 | 일반강사 | 20,000 | 초과시간당 10,000원 추가"
+    }
+   ],
+   "rejected_quotes": [
+    {
+     "ref": "교육훈련규정 별표4",
+     "text": "강의시간 지급인정시간 산출기준 | 3시간 30분 초과 ~ 4시간 이하 | 4시간"
+    }
+   ],
+   "llm_ms": 4583,
+   "prompt_tokens": 3491,
+   "context": [
+    "교육훈련규정 별표4",
+    "임직원행동강령 별표3",
+    "임직원행동강령 제21조",
+    "교육훈련규정 별표3",
+    "교육훈련규정 별표2"
+   ],
+   "false_refusal": true,
+   "numeric": 0.0,
+   "numeric_missing": [
+    1.0,
+    20000.0,
+    10000.0,
+    40000.0
+   ],
+   "conclusion": false
+  },
+  {
+   "id": "q025",
+   "type": "fact",
+   "category": "계약",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "이사장이 정해서 집행할 수 있습니다. (계약사무세칙 제4조)",
+   "citations": [
+    "계약사무세칙 제4조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "이사장이 정해서 집행할 수 있습니다. (계약사무세칙 제4조)",
+   "quotes": [
+    {
+     "ref": "계약사무세칙 제4조",
+     "text": "이사장은 계약사무규칙 및 이 세칙에 규정되지 아니한 사항과 시행에 필요한 세부기준을 작성하여 집행할 수 있다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 3621,
+   "prompt_tokens": 2834,
+   "context": [
+    "계약사무세칙 제4조",
+    "계약사무세칙 제3조",
+    "계약사무세칙 제6조",
+    "계약사무세칙 제7조",
+    "계약사무세칙 제3조의2"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q026",
+   "type": "fact",
+   "category": "계약",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "사업수행능력평가를 하는 기술용역의 경영상태는 발주부서에서 심사한다. (계약사무세칙 제7조)",
+   "citations": [
+    "계약사무세칙 제7조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "사업수행능력평가를 하는 기술용역의 경영상태는 발주부서에서 심사한다. (계약사무세칙 제7조)",
+   "quotes": [
+    {
+     "ref": "계약사무세칙 제7조",
+     "text": "5. 기술용역 가. 계약부서 : 입찰가격, 경영상태(사업수행능력평가(P. Q)를 하지 않는 기술용역 에 한함) 나. 발주부서 : 사업수행능력평가, 지역업체참여도, 경영상태(사업수행능력평가(P. Q)를 하는 기술용역에 한함), 기술인력보유상황 등 결격여부, 기술제안서(단, 사업의 중요도 및 규모에 따라 기술자문위원회 운영부서에 평가를 의뢰할 수 있다)"
+    },
+    {
+     "ref": "계약사무세칙 제7조",
+     "text": "3. 협상에 의한 계약 등 나. 발주부서 : 제안서(단, 사업의 중요도 및 규모에 따라 기술자문위원회 운영부서에 평가를 의뢰할 수 있다)"
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 7771,
+   "prompt_tokens": 2727,
+   "context": [
+    "계약사무세칙 제7조",
+    "계약사무세칙 제6조",
+    "계약사무세칙 제11조",
+    "계약사무세칙 제13조",
+    "계약사무세칙 제5조",
+    "계약사무세칙 제3조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q027",
+   "type": "refuse",
+   "category": "계약",
+   "answerable": false,
+   "refused_by": "llm",
+   "answer": "규정에서 확인되지 않는다. 적격심사 관련 심사기간은 명시되지 않았다.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "규정에서 확인되지 않는다. 적격심사 관련 심사기간은 명시되지 않았다.",
+   "quotes": [],
+   "rejected_quotes": [],
+   "llm_ms": 1280,
+   "prompt_tokens": 2698,
+   "context": [
+    "계약사무세칙 제7조",
+    "계약사무세칙 제6조",
+    "계약사무세칙 제13조",
+    "계약사무세칙 제5조",
+    "계약사무세칙 제10조",
+    "계약사무세칙 제3조"
+   ],
+   "correct_refusal": true
+  },
+  {
+   "id": "q028",
+   "type": "fact",
+   "category": "감사",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "중요한 업무를 집행하기 전에 적법성과 타당성을 점검받는 것은 '일상감사'에 해당합니다. 감사 실시 전 7일 전까지 감사대상부서의 장에게 사전 통지해야 합니다.(감사규정 제4조, 감사규정 제19조)",
+   "citations": [
+    "감사규정 제4조",
+    "감사규정 제19조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "중요한 업무를 집행하기 전에 적법성과 타당성을 점검받는 것은 '일상감사'에 해당합니다. 감사 실시 전 7일 전까지 감사대상부서의 장에게 사전 통지해야 합니다.(감사규정 제4조, 감사규정 제19조)",
+   "quotes": [
+    {
+     "ref": "감사규정 제4조",
+     "text": "5. 일상감사: 공단의 주요 업무 집행에 앞서 그 업무의 적법성ㆍ타당성 등을 점검ㆍ심사하는 감사"
+    },
+    {
+     "ref": "감사규정 제19조",
+     "text": "① 감사는 실지감사를 실시하기 7일전까지 감사대상부서의 장에게 사전 통지한 후 실시한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 5421,
+   "prompt_tokens": 2113,
+   "context": [
+    "감사규정 제37조",
+    "감사규정 제4조",
+    "감사규정 제33조",
+    "감사규정 제19조",
+    "감사규정 제20조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 0.5,
+   "recall": 1.0
+  },
+  {
+   "id": "q029",
+   "type": "multi",
+   "category": "감사",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "감사 종류는 특정감사이며, 감사인은 과거 의사결정에 간접적으로 관여했으므로 감사에 참여할 수 없습니다. 감사담당직원은 감사결과를 축소하라는 외부 압력이 있을 경우 감사에게 보고해야 하며, 감사가 감사인의 독립성 훼손 요인이 지속될 경우 감사의 독립성 훼손 요인에 따라 감사에 참여할 수 없습니다. (감사규정 제6조, 감사규정 제14조)",
+   "citations": [
+    "감사규정 제6조",
+    "감사규정 제14조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "감사 종류는 특정감사이며, 감사인은 과거 의사결정에 간접적으로 관여했으므로 감사에 참여할 수 없습니다. 감사담당직원은 감사결과를 축소하라는 외부 압력이 있을 경우 감사에게 보고해야 하며, 감사가 감사인의 독립성 훼손 요인이 지속될 경우 감사의 독립성 훼손 요인에 따라 감사에 참여할 수 없습니다. (감사규정 제6조, 감사규정 제14조)",
+   "quotes": [
+    {
+     "ref": "감사규정 제6조",
+     "text": "감사인이 감사대상 업무의 의사결정 과정에 직ㆍ간접적으로 관여한 경우"
+    },
+    {
+     "ref": "감사규정 제6조",
+     "text": "감사인은 제2항 및 다음 각호와 같이 감사의 독립성 훼손 요인이 발생할 경우 감사에게 보고하여야 한다."
+    },
+    {
+     "ref": "감사규정 제14조",
+     "text": "감사담당직원은 감사대상부서에서 자료제출 요구 및 기타 감사에 협조하지 아니하여 소기의 목적을 달성할 수 없다고 판단될 경우 감사에게 보고하고 그 지시를 받아야 한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 8624,
+   "prompt_tokens": 2830,
+   "context": [
+    "감사규정 제6조",
+    "감사규정 제14조",
+    "감사규정 제15조",
+    "감사규정 제4조",
+    "감사규정 제37조의2"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 0.5,
+   "recall": 0.3333333333333333
+  },
+  {
+   "id": "q030",
+   "type": "fact",
+   "category": "감사",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "이사장은 감사의 요구대로 조치할 수 없는 불가피한 경우에는 그 사유를 서면으로 통보해야 한다. (감사규정 제9조)",
+   "citations": [
+    "감사규정 제9조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "이사장은 감사의 요구대로 조치할 수 없는 불가피한 경우에는 그 사유를 서면으로 통보해야 한다. (감사규정 제9조)",
+   "quotes": [
+    {
+     "ref": "감사규정 제9조",
+     "text": "감사담당직원의 보직 및 전보는 감사의 요구에 의한다. 다만, 이사장은 감사의 요구대로 조치할 수 없는 불가피한 경우에는 그 사유를 서면으로 통보하여야 한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 3650,
+   "prompt_tokens": 2195,
+   "context": [
+    "감사규정 제9조",
+    "감사규정 제16조",
+    "감사규정 제14조",
+    "감사규정 제23조",
+    "감사규정 제10조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0
+  },
+  {
+   "id": "q031",
+   "type": "fact",
+   "category": "감사",
+   "answerable": false,
+   "refused_by": "verification",
+   "answer": "규정 원문에서 질문하신 내용을 확인하지 못해 답변하지 않습니다. 담당 부서에 확인해 주세요.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [
+    "원문에 없는 인용문 2개",
+    "검증 거절: 검증된 근거 인용문 없음"
+   ],
+   "ungrounded_numbers": [],
+   "raw_answer": "공금 횡령으로 징계받은 직원은 징계처분일로부터 3년이 지나야 감사담당직원으로 선발될 수 있다. (감사규정 제8조) 다만, 징계처분 종료 후 3년이 지나야 하며, 징계처분 종료일부터 3년이 지나야 한다. (인사규정 제24조)",
+   "quotes": [],
+   "rejected_quotes": [
+    {
+     "ref": "감사규정 제8조",
+     "text": "징계처분을 받은 날로부터 3년이 경과 되지 않은 자는 선발하여서는 아니 된다."
+    },
+    {
+     "ref": "인사규정 제24조",
+     "text": "징계처분의 집행이 종료된 날로부터 다음의 기간이 경과하지 아니한 경우 승진 임용될 수 없다."
+    }
+   ],
+   "llm_ms": 5216,
+   "prompt_tokens": 2734,
+   "context": [
+    "감사규정 제9조",
+    "감사규정 제8조",
+    "감사규정 제10조",
+    "인사규정 제24조",
+    "인사규정세칙 제14조"
+   ],
+   "false_refusal": true
+  },
+  {
+   "id": "q032",
+   "type": "numeric",
+   "category": "감사",
+   "answerable": true,
+   "refused_by": null,
+   "answer": "전보 후 1년간 다면평가에서 제외됩니다. (감사규정 제10조)",
+   "citations": [
+    "감사규정 제10조"
+   ],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "전보 후 1년간 다면평가에서 제외됩니다. (감사규정 제10조)",
+   "quotes": [
+    {
+     "ref": "감사규정 제10조",
+     "text": "감사담당직원으로 2년 이상 근무한 자가 전보될 경우 이사장은 본인의 희망을 우선적으로 고려하여야 하고, 전보 후 1년간 그 직원을 다면평가에서 제외한다."
+    }
+   ],
+   "rejected_quotes": [],
+   "llm_ms": 4054,
+   "prompt_tokens": 3021,
+   "context": [
+    "감사규정 제10조",
+    "감사규정 제9조",
+    "감사규정 제8조",
+    "보수규정 제12조",
+    "인사규정 제29조"
+   ],
+   "false_refusal": false,
+   "hit": true,
+   "precision": 1.0,
+   "recall": 1.0,
+   "numeric": 0.5,
+   "numeric_missing": [
+    2.0
+   ],
+   "conclusion": true
+  },
+  {
+   "id": "q033",
+   "type": "numeric",
+   "category": "감사",
+   "answerable": false,
+   "refused_by": "llm",
+   "answer": "규정에서 확인되지 않는다. 감사의 직무에 해당하는 조건은 비상임이사 2인 이상의 연서로 의뢰하는 특정사안에 대한 감사가 포함되지만, 최소 몇 명이 연서해야 하는지에 대한 구체적인 기준은 명시되지 않았다.",
+   "citations": [],
+   "invalid_citations": [],
+   "warnings": [],
+   "ungrounded_numbers": [],
+   "raw_answer": "규정에서 확인되지 않는다. 감사의 직무에 해당하는 조건은 비상임이사 2인 이상의 연서로 의뢰하는 특정사안에 대한 감사가 포함되지만, 최소 몇 명이 연서해야 하는지에 대한 구체적인 기준은 명시되지 않았다.",
+   "quotes": [],
+   "rejected_quotes": [],
+   "llm_ms": 3231,
+   "prompt_tokens": 2940,
+   "context": [
+    "감사규정 제3조",
+    "인사규정 제8조",
+    "감사규정 제10조",
+    "감사규정 제15조",
+    "감사규정 제8조"
+   ],
+   "false_refusal": true,
+   "numeric": 1.0,
+   "numeric_missing": [],
+   "conclusion": true
+  }
+ ]
+}
