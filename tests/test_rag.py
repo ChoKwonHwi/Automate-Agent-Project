@@ -2,7 +2,7 @@ import json
 import unittest
 from dataclasses import dataclass
 
-from rag.answer import REFUSAL_TEXT, answer_question, select_blocks, validate_citations
+from rag.answer import REFUSAL_TEXT, answer_question, canonical_citation, keyword_overlap, select_blocks, validate_citations
 from rag.llm import LLMResponse
 from rag.prompts import build_messages
 
@@ -58,6 +58,16 @@ class SelectBlocksTest(unittest.TestCase):
         self.assertNotIn("조각4", text)
         self.assertEqual([b["ref"] for b in blocks], ["A 제57조", "A 제58조"])  # 긴 조문이 예산을 독차지하지 않음
 
+    def test_keyword_aware_part_selection(self):
+        parts = [hit(0.70, "B 별표4", "사외강사 상한 400,000 " + "가" * 1100, 0),
+                 hit(0.68, "B 별표4", "사내강사 일반강사 20,000 초과시간당 10,000 " + "나" * 1150, 1),
+                 hit(0.66, "B 별표4", "원고료", 2)]
+        q = "사내 일반강사가 3시간 강의하면 강사료는?"
+        self.assertGreater(keyword_overlap(q, parts[1].chunk["text"]), keyword_overlap(q, parts[0].chunk["text"]))
+        text = select_blocks(parts, block_cap=1800, question=q)[0]["text"]
+        self.assertIn("일반강사", text)
+        self.assertNotIn("사외강사", select_blocks(parts, block_cap=1300, question=q)[0]["text"])
+
     def test_prompt_contains_refs(self):
         user = build_messages("질문", select_blocks(HITS))[1]["content"]
         self.assertIn("[근거 1] 여비규정 별표1 (기관, 시행 2024-02-02)", user)
@@ -89,6 +99,28 @@ class AnswerTest(unittest.TestCase):
         llm = FakeLLM("not json", good)
         r = answer_question("질문", lambda q, k: HITS, llm)
         self.assertEqual((r.answerable, len(llm.calls)), (True, 2))
+
+    def test_canonical_citation_variants(self):
+        blocks = [{"ref": "회계규정 제15조"}, {"ref": "교육훈련규정 별표4"}, {"ref": "보수규정 제2조"}]
+        cases = {
+            "회계규정 제15조 ②": "회계규정 제15조",
+            "보수규정 제2조 제6항 (연봉월액 정의)": "보수규정 제2조",
+            "[근거 2] 별표 4 제60조제2항": "교육훈련규정 별표4",
+            "근거 3": "보수규정 제2조",
+            "제15조": "회계규정 제15조",
+            "별표 4": "교육훈련규정 별표4",
+        }
+        for cited, expected in cases.items():
+            self.assertEqual(canonical_citation(cited, blocks), expected, cited)
+        for cited in ("여비규정 제16조", "근거 9", "제99조"):
+            self.assertIsNone(canonical_citation(cited, blocks), cited)
+
+    def test_ungrounded_number_warning(self):
+        content = json.dumps({"answerable": True, "answer": "30일 이내에 지시해야 한다 (여비규정 제16조)",
+                              "citations": ["여비규정 제16조"]})
+        r = answer_question("본사는 며칠 안에 지시해?", lambda q, k: HITS, FakeLLM(content))
+        self.assertEqual(r.ungrounded_numbers, [30])
+        self.assertTrue(any("근거에 없는 숫자" in w for w in r.warnings))
 
     def test_validate_citations_dedupes(self):
         blocks = [{"ref": "여비규정 별표1"}]

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -19,6 +20,7 @@ from retrieval.refs import normalize_ref
 
 from .definitions import definition_blocks, matching_definitions
 from .llm import OllamaChat
+from .numbers import ungrounded_numbers
 from .prompts import ANSWER_SCHEMA, build_messages
 
 MIN_SCORE = 0.45        # 이 점수 미만이면 검색 단계에서 바로 거절
@@ -37,6 +39,7 @@ class AnswerResult:
     answer: str
     citations: list[str] = field(default_factory=list)
     invalid_citations: list[str] = field(default_factory=list)
+    ungrounded_numbers: list[float] = field(default_factory=list)  # 질문 · 근거에 없는 숫자
     context: list[dict] = field(default_factory=list)   # [{"ref", "score", "chars"}]
     refused_by: str | None = None                        # "retrieval" | "llm" | None
     warnings: list[str] = field(default_factory=list)
@@ -45,10 +48,28 @@ class AnswerResult:
     prompt_tokens: int = 0
 
 
-def _join_parts(parts: list[tuple[int, str]], cap: int) -> str:
-    """검색 점수 순으로 들어온 조각 중 상한 안에 드는 것만 남겨 원래 순서로 잇는다."""
+def keyword_overlap(question: str, text: str) -> int:
+    """질문 어절이 본문에 나오는 정도. 조사가 붙은 어절("일반강사가")은 앞에서부터 줄여 가며(≥2자) 찾는다."""
+    score = 0
+    for token in re.findall(r"[가-힣A-Za-z0-9]+", question):
+        for end in range(len(token), 1, -1):
+            if token[:end] in text:
+                score += end
+                break
+    return score
+
+
+def _join_parts(parts: list[tuple[int, str]], cap: int, question: str | None = None) -> str:
+    """상한 안에 드는 조각만 남겨 원래 순서로 잇는다.
+
+    남길 조각의 우선순위: 질문 어절이 많이 나오는 조각 → 검색 순위.
+    (W2 평가 q024: 검색 점수만 보면 "사외강사" 조각이 "사내 일반강사" 조각을 밀어냈다)
+    """
+    if question:
+        ranked = sorted(enumerate(parts), key=lambda x: (-keyword_overlap(question, x[1][1]), x[0]))
+        parts = [p for _, p in ranked]
     kept, used = [], 0
-    for part_no, text in parts:  # parts 는 검색 순위 순
+    for part_no, text in parts:
         if kept and used + len(text) > cap:
             continue
         kept.append((part_no, text[:cap] if not kept and len(text) > cap else text))
@@ -64,7 +85,7 @@ def _join_parts(parts: list[tuple[int, str]], cap: int) -> str:
 
 
 def select_blocks(hits: list, max_blocks: int = MAX_BLOCKS, char_budget: int = CHAR_BUDGET,
-                  block_cap: int = BLOCK_CAP) -> list[dict]:
+                  block_cap: int = BLOCK_CAP, question: str | None = None) -> list[dict]:
     """검색 결과를 조항 단위 근거 블록으로 묶는다.
 
     - 같은 조항의 분할 조각은 하나의 블록으로 합친다 (블록 순위는 처음 나온 조각 기준)
@@ -87,7 +108,7 @@ def select_blocks(hits: list, max_blocks: int = MAX_BLOCKS, char_budget: int = C
     blocks, remaining = [], char_budget
     for key in order:
         g = grouped[key]
-        text = _join_parts(g["parts"], block_cap)
+        text = _join_parts(g["parts"], block_cap, question)
         if remaining < 200:
             break
         if len(text) > remaining:
@@ -105,17 +126,43 @@ def parse_answer(content: str) -> dict:
     return data
 
 
+_CONTEXT_NO_RE = re.compile(r"^\s*\[?\s*근거\s*(\d+)\s*\]?")
+_ARTICLE_HEAD_RE = re.compile(r"^(.*?(?:제\s*\d+\s*조(?:\s*의\s*\d+)?|별\s*표\s*\d*(?:\s*의\s*\d+)?))")
+
+
+def canonical_citation(cited: str, blocks: list[dict]) -> str | None:
+    """모델이 쓴 인용 표기를 근거 블록의 참조로 맞춘다. 근거에 없으면 None.
+
+    허용하는 변형 (조항은 같고 표기만 다른 경우):
+    - 항 · 호 · 설명이 붙음: "회계규정 제15조 ②", "보수규정 제2조 제6항 (연봉월액 정의)" → "회계규정 제15조"
+    - 근거 번호: "[근거 1] 별표 4 …" → 1번 근거의 참조
+    - 규정명 생략: "제57조" → 근거 중 그 조항이 하나뿐이면 그 참조
+    """
+    available = {normalize_ref(b["ref"]): b["ref"] for b in blocks}
+    if m := _CONTEXT_NO_RE.match(cited):
+        n = int(m.group(1))
+        return blocks[n - 1]["ref"] if 1 <= n <= len(blocks) else None
+    text = re.sub(r"[(（][^)）]*[)）]", " ", cited).strip()
+    head = _ARTICLE_HEAD_RE.match(text)
+    key = normalize_ref(head.group(1) if head else text)
+    if key in available:
+        return available[key]
+    if key.startswith(("제", "별표")):  # 규정명이 없는 "제57조" · "별표4" 형태
+        matches = [ref for k, ref in available.items() if k.endswith(key)]
+        if len(matches) == 1:
+            return matches[0]
+    return None
+
+
 def validate_citations(cited: list[str], blocks: list[dict]) -> tuple[list[str], list[str]]:
     """인용이 실제로 제공한 근거 안에 있는지 확인 (없는 조항을 지어낸 인용을 걸러낸다)."""
-    available = {normalize_ref(b["ref"]): b["ref"] for b in blocks}
     valid, invalid = [], []
     for c in cited:
-        key = normalize_ref(c)
-        if key in available:
-            if available[key] not in valid:
-                valid.append(available[key])
-        else:
+        ref = canonical_citation(c, blocks)
+        if ref is None:
             invalid.append(c)
+        elif ref not in valid:
+            valid.append(ref)
     return valid, invalid
 
 
@@ -143,7 +190,7 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
         return AnswerResult(question, False, REFUSAL_TEXT, refused_by="retrieval", search_ms=search_ms,
                             context=[{"ref": h.ref, "score": round(h.score, 4)} for h in hits[:3]])
 
-    blocks = with_definitions(question, select_blocks(hits), definitions)
+    blocks = with_definitions(question, select_blocks(hits, question=question), definitions)
     messages = build_messages(question, blocks)
     data, resp, warnings = None, None, []
     for attempt in range(2):  # JSON 파싱 실패 시 1회 재시도 (PRD F-AGT-04)
@@ -162,13 +209,18 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
 
     citations, invalid = validate_citations([str(c) for c in data.get("citations", [])], blocks)
     answerable = bool(data["answerable"])
+    answer_text = str(data["answer"]).strip()
     if invalid:
         warnings.append(f"근거에 없는 조항을 인용함: {invalid}")
     if answerable and not citations:
         warnings.append("답변했지만 유효한 인용이 없음")
+    unknown = ungrounded_numbers(answer_text, question, [b["text"] for b in blocks])
+    if unknown:  # 지어낸 숫자 또는 계산 결과 — 계산은 W4 계산 도구가 맡는다
+        warnings.append(f"근거에 없는 숫자: {[f'{n:,.2f}'.rstrip('0').rstrip('.') for n in unknown]} (계산 결과가 아니면 환각)")
     return AnswerResult(
-        question=question, answerable=answerable, answer=str(data["answer"]).strip(),
-        citations=citations if answerable else [], invalid_citations=invalid, context=context,
+        question=question, answerable=answerable, answer=answer_text,
+        citations=citations if answerable else [], invalid_citations=invalid, ungrounded_numbers=unknown,
+        context=context,
         refused_by=None if answerable else "llm", warnings=warnings,
         search_ms=search_ms, llm_ms=resp.total_ms, prompt_tokens=resp.prompt_tokens,
     )
@@ -225,7 +277,7 @@ def main(argv: list[str] | None = None) -> int:
     print(render(result))
     if args.show_context and hits_cache.get("hits"):
         print("\n===== 근거 원문")
-        for b in with_definitions(args.question, select_blocks(hits_cache["hits"]), definitions):
+        for b in with_definitions(args.question, select_blocks(hits_cache["hits"], question=args.question), definitions):
             print(f"\n[{b['ref']}] ({b['score']:.3f}{', 정의 첨부' if b.get('kind') == 'definition' else ''})\n{b['text']}")
     return 0
 

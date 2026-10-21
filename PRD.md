@@ -323,7 +323,7 @@ project/
 
 | # | 항목 | 결정 |
 |---|---|---|
-| D1 | LLM 실행 방식 | **Ollama 로컬 LLM 기본** (RTX 5060 Laptop 8GB). 기본 모델 Qwen3 8B Q4_K_M, W2 비교 실험 후 최종 확정. 외부 LLM API는 사용하지 않음 |
+| D1 | LLM 실행 방식 | **Ollama 로컬 LLM 기본** (RTX 5060 Laptop 8GB). **Qwen3 8B Q4_K_M 확정 (2026-10-21, W2 비교)** — EXAONE 3.5 7.8B · Gemma 3 4B 대비 거절 · 인용 정밀도 우위, tool calling 지원. 결과: `eval/reports/w2_llm_compare.md`. 외부 LLM API는 사용하지 않음 |
 | D2 | 데모용 "가상 회사" 기준 기관 | 규정이 잘 정리된 공공기관 1곳을 주 기관으로, 보조 기관 2곳 추가 (W1 데이터 수집 시 선정) |
 | D3 | UI | MVP는 Streamlit, Phase 2에서 Next.js 검토 |
 | D4 | 협업툴 연동 | Notion을 신청서 등록용으로 우선 구현, Slack은 알림 전송만 |

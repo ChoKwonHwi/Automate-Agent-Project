@@ -47,8 +47,9 @@ def read_rows(path: Path) -> list[tuple[int, dict]]:
     return [(i, row) for i, row in enumerate(reader, start=2) if any((v or "").strip() for k, v in row.items() if k)]
 
 
-def check(rows: list[tuple[int, dict]], known_refs: set[str]) -> tuple[list[GoldenItem], list[str]]:
-    items, problems = [], []
+def check(rows: list[tuple[int, dict]], known_refs: set[str]) -> tuple[list[GoldenItem], list[str], list[str]]:
+    """반환: (문항, 오류 — 평가 불가, 경고 — 평가는 가능하지만 고치면 좋은 것)"""
+    items, problems, notes = [], [], []
     seen: set[str] = set()
     for line, row in rows:
         where = f"{line}행({(row.get('id') or '?').strip()})"
@@ -57,7 +58,10 @@ def check(rows: list[tuple[int, dict]], known_refs: set[str]) -> tuple[list[Gold
                             f"(넘친 값: {row[None]})")
             continue
         r = {k: (row.get(k) or "").strip() for k in COLUMNS}
-        refs = split_refs(r["evidence"])
+        raw_refs = split_refs(r["evidence"])
+        refs = list({normalize_ref(x): x for x in reversed(raw_refs)}.values())[::-1]  # 표기만 다른 중복 제거, 순서 유지
+        if len(refs) < len(raw_refs):
+            notes.append(f"{where}: 같은 근거 조항이 중복으로 적혀 있어 하나로 합쳤습니다 ({r['evidence']})")
         if not r["id"]:
             problems.append(f"{where}: id 가 비어 있습니다.")
         elif r["id"] in seen:
@@ -76,18 +80,19 @@ def check(rows: list[tuple[int, dict]], known_refs: set[str]) -> tuple[list[Gold
             if not refs:
                 problems.append(f"{where}: evidence 가 비어 있습니다.")
             if r["type"] == "multi" and len(refs) < 2:
-                problems.append(f"{where}: multi 문항은 근거 조항이 2개 이상이어야 합니다.")
+                notes.append(f"{where}: multi 문항인데 근거 조항이 {len(refs)}개입니다 — 다른 근거 조항을 추가하거나 "
+                             "type 을 fact/numeric 으로 바꾸세요")
             for ref in refs:
                 if normalize_ref(ref) not in known_refs:
                     problems.append(f"{where}: 근거 '{ref}' 를 찾을 수 없습니다 — "
                                     "`python -m retrieval.lookup --list 규정명` 의 표기를 쓰세요 (별표는 '여비규정 별표1')")
         items.append(GoldenItem(r["id"], r["type"], r["category"], r["question"], r["answer"], refs, r["notes"]))
-    return items, problems
+    return items, problems, notes
 
 
 def load_golden(path: Path = GOLDEN_PATH) -> list[GoldenItem]:
     known = set(group_by_ref(load_chunks(get_settings().chunks_path)))
-    items, problems = check(read_rows(path), known)
+    items, problems, _ = check(read_rows(path), known)
     if problems:
         raise ValueError("Golden Set 형식 오류:\n" + "\n".join(problems))
     return items
@@ -100,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     known = set(group_by_ref(load_chunks(get_settings().chunks_path)))
-    items, problems = check(read_rows(Path(args.path)), known)
+    items, problems, notes = check(read_rows(Path(args.path)), known)
     print(f"문항 {len(items)}개")
     types = Counter(i.type for i in items)
     print("유형별: " + ", ".join(f"{t} {types.get(t, 0)}/{goal}" for t, goal in TYPES.items()))
@@ -110,6 +115,10 @@ def main(argv: list[str] | None = None) -> int:
     overused = [r for r, n in doc_refs.items() if n >= 3]
     if overused:
         print(f"참고: 같은 조항을 3번 이상 근거로 쓴 문항이 있습니다 {overused}")
+    if notes:
+        print(f"\n경고 {len(notes)}건 (평가는 가능)")
+        for n in notes:
+            print(" - " + n)
     if problems:
         print(f"\n문제 {len(problems)}건")
         for p in problems:

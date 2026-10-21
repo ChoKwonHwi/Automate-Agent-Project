@@ -34,7 +34,9 @@
   - [x] BGE-M3(GPU) 임베딩 + Qdrant 증분 인덱서, 검색 · 조항 조회 CLI
   - [x] Golden Set 33문항 + 검색 평가 → **기준선 Recall@5 0.97 · MRR 0.873** ([리포트](eval/reports/w2_dense_baseline.md))
   - [x] 근거 기반 답변: 출처 인용 · 인용 검증 · 2단계 거절 · 정의 조항 자동 첨부
-  - [ ] Golden Set 100문항으로 확장, 답변 자동 채점 + LLM 3종 비교
+  - [x] 답변 자동 채점 + LLM 3종 비교 → **Qwen3 8B 확정** (인용 적중 86% · 거절 50%, [리포트](eval/reports/w2_llm_compare.md))
+  - [ ] Golden Set 100문항으로 확장, 사람 판정 20개
+  - 남은 과제: 거절 정확도(50% → 목표 90%)는 W3 quote 검증으로, 계산 오류는 W4 계산 도구로
 - [ ] W3 — 하이브리드 검색 + Reranker + 거절 로직
 - [ ] W4 — MCP 서버, LangGraph Agent, 계산 도구
 - [ ] W5 — Notion/Slack 연동, 승인 흐름, API + UI
@@ -82,6 +84,7 @@ python -m retrieval.lookup "여비규정 제16조" "여비규정 별표1"   # �
 python -m retrieval.lookup --list 여비규정                     # 참조 표기 목록
 python -m eval.golden                                          # Golden Set 형식 검사 · 구성 현황
 python -m eval.retrieval                                       # 검색 평가 → eval/reports/
+python -m eval.answer --models qwen3:8b exaone3.5:7.8b        # 답변 평가 · 모델 비교 → eval/reports/
 ```
 
 ### 5. 근거 기반 답변 (W2)
