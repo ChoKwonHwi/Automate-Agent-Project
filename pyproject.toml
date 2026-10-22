@@ -16,6 +16,7 @@ rag = [
     "torch>=2.7",
     "sentence-transformers>=3",
     "qdrant-client>=1.12",
+    "kiwipiepy>=0.18",
 ]
 
 [build-system]

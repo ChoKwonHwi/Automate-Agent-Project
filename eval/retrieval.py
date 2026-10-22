@@ -148,12 +148,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Golden Set 검색 평가")
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--name", default="w2_dense_baseline", help="리포트 파일 이름")
+    parser.add_argument("--mode", choices=["dense", "bm25", "hybrid"], help="검색 방식 (기본: .env 의 SEARCH_MODE)")
     args = parser.parse_args(argv)
 
     from retrieval.search import Searcher
 
     items = load_golden()
-    searcher = Searcher()
+    searcher = Searcher(mode=args.mode)
     try:
         searcher.warmup()  # 모델 로드 · GPU 초기화를 지연 측정에서 제외
         search = lambda q, k: [(h.score, h.ref, h.chunk) for h in searcher.search(q, k)]
@@ -162,7 +163,10 @@ def main(argv: list[str] | None = None) -> int:
         searcher.close()
 
     s = searcher.settings
-    note = f"dense only · {s.embedding_model} · Qdrant cosine · 필터 없음 · k={args.k}"
+    mode_note = {"dense": f"dense only · {s.embedding_model} · Qdrant cosine",
+                 "bm25": "BM25 only · Kiwi 형태소 + 복합명사",
+                 "hybrid": f"hybrid RRF(k=60) · dense({s.embedding_model}) + BM25(Kiwi) 각 30개"}[searcher.mode]
+    note = f"{mode_note} · 필터 없음 · k={args.k}"
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     report = build_report(args.name, results, note)
     (REPORT_DIR / f"{args.name}.md").write_text(report, encoding="utf-8")

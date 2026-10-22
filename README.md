@@ -19,7 +19,7 @@
 |---|---|
 | LLM | Ollama + Qwen3 8B (로컬 GPU, VRAM 8GB) |
 | 임베딩 / 리랭커 | BGE-M3 / bge-reranker-v2-m3 |
-| 검색 | Qdrant + BM25(Kiwi 형태소 분석) |
+| 검색 | Qdrant(dense) + BM25(Kiwi 형태소 분석), RRF 하이브리드 |
 | Agent / 도구 | LangGraph, FastMCP |
 | 서비스 | FastAPI, Streamlit, Docker Compose |
 | 평가 / 관측 | RAGAS, Langfuse |
@@ -39,7 +39,8 @@
   - 남은 과제: 거절 정확도(50% → 목표 90%)는 W3 quote 검증으로, 계산 오류는 W4 계산 도구로
 - [ ] W3 — 하이브리드 검색 + Reranker + 거절 로직 ([진행 상황](docs/plan-w3.md#진행-상황))
   - [x] 인용문 대조 거절: **거절 50% → 100%**, 인용 적중 96% (오거절 14% — 남은 과제)
-  - [ ] 하이브리드 검색 · 리랭커 · 두 줄 머리 표
+  - [x] 하이브리드 검색(dense + BM25, RRF): **Recall@5 0.95 → 1.00**, 기본 검색 방식으로 채택
+  - [ ] 리랭커 · 두 줄 머리 표 · 쿼리 재작성
 - [ ] W4 — MCP 서버, LangGraph Agent, 계산 도구
 - [ ] W5 — Notion/Slack 연동, 승인 흐름, API + UI
 - [ ] W6 — Langfuse, Docker Compose, 평가 리포트
@@ -81,7 +82,7 @@ pip install -e ".[rag]"
 ```
 ```bash
 python -m retrieval.index                      # 청크 → Qdrant(로컬 파일) 적재, 재실행 시 변경분만
-python -m retrieval.search "서울 출장 숙박비 상한" -k 5 --category 여비
+python -m retrieval.search "서울 출장 숙박비 상한" -k 5 --category 여비   # --mode dense|bm25|hybrid
 python -m retrieval.lookup "여비규정 제16조" "여비규정 별표1"   # 조항 원문 조회
 python -m retrieval.lookup --list 여비규정                     # 참조 표기 목록
 python -m eval.golden                                          # Golden Set 형식 검사 · 구성 현황

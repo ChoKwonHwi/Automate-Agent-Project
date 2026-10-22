@@ -30,6 +30,7 @@ class Settings:
     embedding_device: str
     embedding_batch_size: int
     ollama_host: str
+    search_mode: str
 
 
 def get_settings() -> Settings:
@@ -42,4 +43,5 @@ def get_settings() -> Settings:
         embedding_device=env.get("EMBEDDING_DEVICE", "auto"),
         embedding_batch_size=int(env.get("EMBEDDING_BATCH_SIZE", "16")),
         ollama_host=env.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/"),
+        search_mode=env.get("SEARCH_MODE", "hybrid"),
     )
