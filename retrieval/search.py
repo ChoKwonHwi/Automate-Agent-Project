@@ -126,12 +126,13 @@ class Searcher:
 
             self.last_expansion = expand(query)
             if self.last_expansion:
-                # "원래 질문 + 규정 용어"로 검색한다. 원래 질문 검색을 함께 섞으면 확장 효과가 희석된다
-                # (W3 측정: 일상어 확인 질문 정답 8위 → 1위, Golden 85문항은 두 방식 동일 R@1 0.88 → 0.92)
+                # 원래 질문 검색에 "원래 질문 + 규정 용어" 검색을 더한다 (add).
+                # 확장 검색만 쓰면 사전이 빗나갈 때 원래 결과를 통째로 잃는다
+                # (W3 일상어 16문항: q081 "교통비"→운임 확장으로 6위 → 10위 밖. add 가 전체 · 일상어 모두 최고 MRR)
                 expanded = query + " " + " ".join(self.last_expansion)
                 ev = self.embedder.embed_query(expanded)
                 score_vectors.append(ev)
-                rankings = [self._dense(ev, POOL, filters), self._bm25_hits(expanded, ev, POOL, filters)]
+                rankings += [self._dense(ev, POOL, filters), self._bm25_hits(expanded, ev, POOL, filters)]
         merged = rrf_merge(*rankings)
         if len(score_vectors) > 1:
             self._rescore(merged[:max(k, 10)], score_vectors)

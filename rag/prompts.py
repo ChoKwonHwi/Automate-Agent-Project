@@ -30,6 +30,8 @@ ANSWER_SCHEMA = {
     "properties": {
         "quotes": {
             "type": "array",
+            # 개수를 문법으로 제한한다: 모델이 같은 인용문을 끝없이 반복하는 루프가 있었다 (W3 평가 q064, 1,024 토큰까지 반복)
+            "maxItems": 3,
             "items": {
                 "type": "object",
                 "properties": {"ref": {"type": "string"}, "text": {"type": "string"}},
@@ -38,7 +40,7 @@ ANSWER_SCHEMA = {
         },
         "answerable": {"type": "boolean"},
         "answer": {"type": "string"},
-        "citations": {"type": "array", "items": {"type": "string"}},
+        "citations": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
     },
     "required": ["quotes", "answerable", "answer", "citations"],
 }

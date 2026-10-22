@@ -198,13 +198,18 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
     blocks = with_definitions(question, select_blocks(hits, question=question), definitions)
     messages = build_messages(question, blocks)
     data, resp, warnings = None, None, []
-    for attempt in range(2):  # JSON 파싱 실패 시 1회 재시도 (PRD F-AGT-04)
-        resp = llm.chat(messages, schema=ANSWER_SCHEMA, temperature=0.1 if attempt == 0 else 0.0)
+    for attempt in range(2):  # JSON 파싱 실패 · 호출 실패 시 1회 재시도 (PRD F-AGT-04)
+        try:
+            resp = llm.chat(messages, schema=ANSWER_SCHEMA, temperature=0.1 if attempt == 0 else 0.0)
+        except RuntimeError as exc:
+            warnings.append(f"LLM 호출 실패 (시도 {attempt + 1}): {exc}")
+            continue
         try:
             data = parse_answer(resp.content)
             break
         except (ValueError, json.JSONDecodeError):
-            warnings.append(f"LLM 응답 JSON 파싱 실패 (시도 {attempt + 1})")
+            # 출력 상한(num_predict)에 걸려 JSON 이 잘린 경우도 여기로 온다
+            warnings.append(f"LLM 응답 JSON 파싱 실패 (시도 {attempt + 1}, 출력 {resp.output_tokens} tokens)")
     context = [{"ref": b["ref"], "score": round(b["score"], 4), "chars": len(b["text"]),
                 "kind": b.get("kind", "search")} for b in blocks]
     if data is None:

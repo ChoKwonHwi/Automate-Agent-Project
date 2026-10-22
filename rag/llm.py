@@ -21,12 +21,14 @@ class LLMResponse:
 
 class OllamaChat:
     def __init__(self, model: str | None = None, host: str | None = None, num_ctx: int | None = None,
-                 timeout: int = 300):
+                 timeout: int = 120, num_predict: int | None = None):
         env = {**_load_dotenv(ROOT / ".env"), **os.environ}
         self.model = model or env.get("LLM_MODEL", "qwen3:8b")
         self.host = (host or env.get("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
         self.num_ctx = num_ctx or int(env.get("LLM_NUM_CTX", "8192"))
         self.timeout = timeout
+        # 출력 상한: 모델이 인용문을 반복하며 멈추지 않는 경우가 있어 응답 하나에 충분한 길이로 자른다 (W3 평가 중 300초 타임아웃)
+        self.num_predict = num_predict or int(env.get("LLM_NUM_PREDICT", "1024"))
         self.supports_think = True  # thinking 미지원 모델이면 첫 오류 후 False 로 바뀐다
 
     def _post(self, path: str, payload: dict) -> dict:
@@ -40,7 +42,7 @@ class OllamaChat:
         payload = {
             "model": self.model, "messages": messages, "stream": False,
             "keep_alive": "30m",
-            "options": {"num_ctx": self.num_ctx, "temperature": temperature},
+            "options": {"num_ctx": self.num_ctx, "temperature": temperature, "num_predict": self.num_predict},
         }
         if self.supports_think:
             payload["think"] = think
@@ -56,7 +58,7 @@ class OllamaChat:
                 data = self._post("/api/chat", payload)
             else:
                 raise RuntimeError(f"Ollama 호출 실패 ({self.model}): HTTP {exc.code} {body[:200]}") from exc
-        except urllib.error.URLError as exc:
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
             raise RuntimeError(f"Ollama 호출 실패 ({self.host}, {self.model}): {exc}") from exc
         return LLMResponse(
             content=data["message"]["content"],
