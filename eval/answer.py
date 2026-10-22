@@ -221,6 +221,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--models", nargs="+", help="Ollama 모델들 (기본: .env 의 LLM_MODEL)")
     parser.add_argument("--name", default="w2_llm_compare")
     parser.add_argument("--ids", nargs="*", help="일부 문항만 (예: q001 q005)")
+    parser.add_argument("--rerank", action=argparse.BooleanOptionalAction, default=None,
+                        help="리랭커 재정렬 · 근거 오용 게이트 켜기/끄기 (기본: .env 의 RERANKER)")
     args = parser.parse_args(argv)
 
     from rag.answer import answer_question
@@ -235,6 +237,10 @@ def main(argv: list[str] | None = None) -> int:
     models = args.models or [OllamaChat().model]
 
     searcher = Searcher()
+    if args.rerank:
+        searcher.enable_rerank()
+    elif args.rerank is False:
+        searcher.reranker = None
     searcher.warmup()
     definitions = build_index(load_chunks(searcher.settings.chunks_path))
     runs: dict[str, list[dict]] = {}
@@ -262,7 +268,9 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         searcher.close()
 
-    note = (f"검색 dense(BGE-M3) top-8 → 근거 최대 5조항 · 6,000자 · 정의 조항 첨부 · num_ctx {OllamaChat().num_ctx} · "
+    note = (f"검색 {searcher.mode}" + (" + 사전" if searcher.use_glossary else "")
+            + (" + 리랭커(재정렬 · 근거 오용 게이트)" if searcher.reranker else "")
+            + f" top-8 → 근거 최대 5조항 · 6,000자 · 정의 조항 첨부 · 인용문 대조 · num_ctx {OllamaChat().num_ctx} · "
             "temperature 0.1 · thinking off")
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     (REPORT_DIR / f"{args.name}.md").write_text(build_report(args.name, items, runs, {"note": note}), encoding="utf-8")

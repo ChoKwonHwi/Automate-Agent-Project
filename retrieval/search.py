@@ -25,6 +25,7 @@ RRF_K = 60       # Reciprocal Rank Fusion 상수 (표준값)
 # 쿼리 재작성 기준: 상위 결과의 최고 dense 점수가 이보다 낮을 때만 재작성 (W3 측정: Golden Set 하위 10% = 0.622,
 # 검색 실패한 일상어 질문 0.580) → 평소 질문은 재작성 없이 처리해 지연을 아낀다
 REWRITE_BELOW = 0.62
+RERANK_TOP = 20  # 리랭커로 다시 줄 세울 후보 수 (GPU 0.4초)
 
 
 @dataclass
@@ -33,6 +34,7 @@ class Hit:
     chunk: dict
     rrf: float = 0.0      # hybrid 결합 점수
     sources: str = ""     # "dense" · "bm25" · "dense+bm25"
+    rerank: float | None = None  # 리랭커 관련도 0~1 (리랭커를 켰을 때)
 
     @property
     def ref(self) -> str:
@@ -64,8 +66,23 @@ class Searcher:
         self.use_glossary = s.query_glossary  # 일상어 → 규정 용어 사전 (hybrid 모드, 지연 ~0ms)
         self.last_expansion: list[str] = []
         self.rewriter = None          # enable_rewrite() 로 켠다 (hybrid 모드에서만 동작, 기본 꺼짐 — W3 실험 결과)
+        self.reranker = None          # enable_rerank() 로 켠다 (설정 RERANKER=on 이면 hybrid 에서 자동)
         self.rewrite_below = REWRITE_BELOW
         self.last_rewrite = None      # 마지막 검색의 재작성 결과 (평가 · 디버깅용)
+        if s.use_reranker and self.mode == "hybrid":
+            self.enable_rerank()
+
+    def enable_rerank(self, reranker=None) -> None:
+        from .reranker import Reranker
+
+        self.reranker = reranker or Reranker(self.settings.reranker_model, self.settings.embedding_device)
+
+    def _rerank(self, query: str, hits: list[Hit], k: int) -> list[Hit]:
+        """RRF 상위 RERANK_TOP 개를 리랭커 관련도로 다시 줄 세운다. 그 밖의 후보는 버린다."""
+        pool = hits[:max(RERANK_TOP, k)]
+        for h, score in zip(pool, self.reranker.score(query, [h.chunk["embed_text"] for h in pool])):
+            h.rerank = score
+        return sorted(pool, key=lambda h: -h.rerank)[:k]
 
     def enable_rewrite(self, llm, below: float = REWRITE_BELOW, always: bool = False) -> None:
         from .rewrite import QueryRewriter
@@ -86,6 +103,8 @@ class Searcher:
         self.embedder.embed_query("워밍업")
         if self.mode != "dense":
             self.bm25.search("워밍업", 1)  # Kiwi 로드 · BM25 인덱스 구축(또는 캐시 로드)
+        if self.reranker:
+            self.reranker.warmup()
 
     def _dense(self, vector: list[float], k: int, filters: dict) -> list[Hit]:
         result = self.client.query_points(
@@ -138,21 +157,24 @@ class Searcher:
             self._rescore(merged[:max(k, 10)], score_vectors)
         best = max((h.score for h in merged[:10]), default=0.0)
         if self.rewriter is None or best >= self.rewrite_below:
-            return merged[:k]
+            return self._finish(query, merged, k)
 
         rw = self.rewriter.rewrite(query)
         self.last_rewrite = rw
         if rw.empty:
-            return merged[:k]
+            return self._finish(query, merged, k)
         for q in rw.queries:
             qv = self.embedder.embed_query(q)
             score_vectors.append(qv)
             rankings += [self._dense(qv, POOL, filters), self._bm25_hits(q, qv, POOL, filters)]
         if rw.hypothetical:  # 가상 조문은 검색에만 쓴다 (근거 · 점수에는 쓰지 않음)
             rankings.append(self._dense(self.embedder.embed_query(rw.hypothetical), POOL, filters))
-        merged = rrf_merge(*rankings)[:k]
+        merged = rrf_merge(*rankings)[:max(k, RERANK_TOP)]
         self._rescore(merged, score_vectors)
-        return merged
+        return self._finish(query, merged, k)
+
+    def _finish(self, query: str, merged: list[Hit], k: int) -> list[Hit]:
+        return self._rerank(query, merged, k) if self.reranker else merged[:k]
 
     def _rescore(self, hits: list[Hit], vectors: list[list[float]]) -> None:
         """Hit.score 를 원래 질문 · 재작성 검색어 벡터와의 코사인 중 큰 값으로 맞춘다 (거절 기준의 척도 통일)."""
@@ -187,6 +209,8 @@ def format_hit(rank: int, hit: Hit, full: bool = False) -> str:
     title = f"({c['article_title']})" if c.get("article_title") else ""
     part = f" [{c['part'] + 1}/{c['total_parts']}]" if c.get("total_parts", 1) > 1 else ""
     via = f" [{hit.sources}]" if hit.sources and hit.sources != "dense" else ""
+    if hit.rerank is not None:
+        via += f" rerank {hit.rerank:.3f}"
     head = (f"{rank:>2}. {hit.score:.3f}  {hit.ref}{title}{part}{via}"
             f"  · {c.get('org', '')} · {c.get('section', '')} · 시행 {c.get('effective_date', '')}")
     body = c["text"] if full else c["text"].replace("\n", " / ")[:220] + ("…" if len(c["text"]) > 220 else "")
@@ -207,11 +231,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mode", choices=MODES, help="검색 방식 (기본: .env 의 SEARCH_MODE)")
     parser.add_argument("--rewrite", choices=["auto", "always"], help="LLM 쿼리 재작성 (hybrid 모드, 실험용)")
     parser.add_argument("--no-glossary", action="store_true", help="일상어 사전 확장 끄기")
+    parser.add_argument("--rerank", action=argparse.BooleanOptionalAction, default=None,
+                        help="리랭커 재정렬 켜기/끄기 (기본: .env 의 RERANKER)")
     args = parser.parse_args(argv)
 
     searcher = Searcher(mode=args.mode)
     if args.no_glossary:
         searcher.use_glossary = False
+    if args.rerank:
+        searcher.enable_rerank()
+    elif args.rerank is False:
+        searcher.reranker = None
     if args.rewrite:
         from rag.llm import OllamaChat
 

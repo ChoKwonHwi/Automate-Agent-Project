@@ -32,6 +32,8 @@ class Settings:
     ollama_host: str
     search_mode: str
     query_glossary: bool
+    reranker_model: str
+    use_reranker: bool
 
 
 def get_settings() -> Settings:
@@ -46,4 +48,6 @@ def get_settings() -> Settings:
         ollama_host=env.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/"),
         search_mode=env.get("SEARCH_MODE", "hybrid"),
         query_glossary=env.get("QUERY_GLOSSARY", "on").lower() in ("1", "on", "true", "yes"),
+        reranker_model=env.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"),
+        use_reranker=env.get("RERANKER", "on").lower() in ("1", "on", "true", "yes"),
     )

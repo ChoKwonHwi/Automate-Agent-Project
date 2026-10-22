@@ -18,7 +18,7 @@
 | 영역 | 사용 기술 |
 |---|---|
 | LLM | Ollama + Qwen3 8B (로컬 GPU, VRAM 8GB) |
-| 임베딩 / 리랭커 | BGE-M3 / bge-reranker-v2-m3 |
+| 임베딩 / 리랭커 | BGE-M3 / bge-reranker-v2-m3 (둘 다 GPU) |
 | 검색 | Qdrant(dense) + BM25(Kiwi 형태소 분석), RRF 하이브리드 |
 | Agent / 도구 | LangGraph, FastMCP |
 | 서비스 | FastAPI, Streamlit, Docker Compose |
@@ -42,7 +42,8 @@
   - [x] 하이브리드 검색(dense + BM25, RRF): **Recall@5 0.95 → 1.00**, 기본 검색 방식으로 채택
   - [x] 일상어 → 규정 용어 사전 확장: 일상어 R@5 0.81 → 0.88 (LLM 쿼리 재작성은 효과 없어 기본 끔)
   - [x] Golden Set 110문항(일상어 20) 재측정: 거절 76% · 오거절 12% · 인용 적중 90% — 근거 오용 · 계산은 남은 과제
-  - [ ] 리랭커 · 두 줄 머리 표
+  - [x] 리랭커(GPU, 재정렬 + 근거 오용 게이트): 검색 R@1 0.83 → 0.91, **거절 75% → 100%**, 오거절 12% → 10%
+  - [ ] 두 줄 머리 표 · 오거절 줄이기
 - [ ] W4 — MCP 서버, LangGraph Agent, 계산 도구
 - [ ] W5 — Notion/Slack 연동, 승인 흐름, API + UI
 - [ ] W6 — Langfuse, Docker Compose, 평가 리포트

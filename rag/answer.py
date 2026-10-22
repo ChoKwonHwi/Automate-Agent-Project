@@ -30,6 +30,9 @@ MAX_BLOCKS = 5          # LLM 에 넣는 근거 조항 수
 # num_ctx 8K 에서 시스템 프롬프트(~0.6K) · 답변(~0.5K) 공간을 남긴다 (PRD 8.3)
 CHAR_BUDGET = 6000
 BLOCK_CAP = 1800        # 조항 하나가 예산을 독차지하지 않도록 조항당 상한
+# 근거 오용 게이트: 인용한 조항의 리랭커 점수가 최고 후보의 이 비율 미만이면 "더 관련 있는 조항을 두고 엉뚱한 조항을 인용"으로 보고 거절.
+# W3 측정: 답 있는 91문항의 정답 조항 비율 최소 0.32, 근거 오용 q010 0.088 · q027 0.137 (같은 Golden Set 으로 정함 — 과적합 주의)
+RELEVANCE_RATIO = 0.2
 REFUSAL_TEXT = "등록된 규정에서 이 질문에 대한 근거를 찾지 못했습니다. 담당 부서에 확인해 주세요."
 UNVERIFIED_TEXT = "규정 원문에서 질문하신 내용을 확인하지 못해 답변하지 않습니다. 담당 부서에 확인해 주세요."
 
@@ -107,8 +110,12 @@ def select_blocks(hits: list, max_blocks: int = MAX_BLOCKS, char_budget: int = C
                 continue
             order.append(key)
             grouped[key] = {"ref": hit.ref, "doc_title": c.get("doc_title", ""), "org": c.get("org", ""),
-                            "effective_date": c.get("effective_date", ""), "score": hit.score, "parts": []}
+                            "effective_date": c.get("effective_date", ""), "score": hit.score, "parts": [],
+                            "rerank": None}
         grouped[key]["parts"].append((c.get("part", 0), c["text"]))
+        rr = getattr(hit, "rerank", None)
+        if rr is not None:
+            grouped[key]["rerank"] = max(rr, grouped[key]["rerank"] or 0.0)
 
     blocks, remaining = [], char_budget
     for key in order:
@@ -120,7 +127,8 @@ def select_blocks(hits: list, max_blocks: int = MAX_BLOCKS, char_budget: int = C
             text = text[:remaining] + "\n…(이하 생략)"
         remaining -= len(text)
         blocks.append({"ref": g["ref"], "doc_title": g["doc_title"], "org": g["org"],
-                       "effective_date": g["effective_date"], "score": g["score"], "text": text})
+                       "effective_date": g["effective_date"], "score": g["score"], "rerank": g["rerank"],
+                       "text": text})
     return blocks
 
 
@@ -169,6 +177,25 @@ def validate_citations(cited: list[str], blocks: list[dict]) -> tuple[list[str],
         elif ref not in valid:
             valid.append(ref)
     return valid, invalid
+
+
+def misused_evidence(quotes: list[dict], blocks: list[dict], ratio: float = RELEVANCE_RATIO) -> str | None:
+    """인용한 조항이 질문과 관련이 낮으면(근거 오용) 사유 문자열, 아니면 None. 리랭커 점수가 없으면 판단하지 않는다.
+
+    인용문 대조는 "그 문장이 원문에 있는가"만 본다. q010 처럼 주소 변경신고 기한을 묻는데 이전비 신청 기한(실제 원문)을
+    인용하면 대조를 통과한다 → (질문, 인용 조항) 관련도를 최고 후보와 비교한다.
+    """
+    scored = {normalize_ref(b["ref"]): b["rerank"] for b in blocks if b.get("rerank") is not None}
+    if not scored:
+        return None
+    top = max(scored.values())
+    quoted = [scored[normalize_ref(q["ref"])] for q in quotes if normalize_ref(q["ref"]) in scored]
+    if not quoted or top <= 0:
+        return None  # 정의 블록만 인용했거나 점수 없음 → 판단 보류
+    best = max(quoted)
+    if best < ratio * top:
+        return f"인용 조항의 질문 관련도가 낮음 (리랭커 {best:.3f} < 최고 후보 {top:.3f} × {ratio})"
+    return None
 
 
 def with_definitions(question: str, blocks: list[dict], definitions: dict | None, top_docs: int = 3) -> list[dict]:
@@ -227,10 +254,13 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
     raw_answer = answer_text
     if answerable:  # 모델이 답하겠다고 해도, 근거 문장이 원문에 있고 기한 · 기간이 그 문장에 있어야 답한다
         missing_periods = unsupported_periods(answer_text, question, quotes)
+        misused = misused_evidence(quotes, blocks)
         if not quotes:
             reason = "검증된 근거 인용문 없음"
         elif missing_periods:
             reason = f"근거 인용문에 없는 기한 · 기간 {missing_periods}"
+        elif misused:
+            reason = misused
         else:
             reason = None
         if reason:

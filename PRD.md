@@ -228,8 +228,8 @@
 |---|---|---|---|
 | Qwen3 8B Q4_K_M (Ollama) | GPU | **5.77GB (실측)** | 컨텍스트 8K 토큰으로 제한 (`num_ctx=8192`), GPU 적재 100% |
 | BGE-M3 (질의 임베딩) | GPU (fp16) | 약 1.1GB | 대량 인덱싱은 LLM을 내린 상태에서 배치 실행 |
-| bge-reranker-v2-m3 | **CPU** | — | 상위 20개만 재정렬. GPU 여유(약 2GB)가 부족해 CPU 기본, W3에 지연 측정 후 재검토 |
-| 합계 (GPU) | | 약 6.9GB + 기타 프로세스 | LLM 적재 시 GPU 전체 사용량 실측 6.06GB / 8.15GB |
+| bge-reranker-v2-m3 | **GPU (fp16)** | **+0.55GB (실측)** | 상위 20개만 재정렬. W3 실측: CPU 83초 · GPU 0.39초 → GPU 채택. LLM · 임베딩과 함께 7.8GB / 8.15GB |
+| 합계 (GPU) | | 약 7.5GB + 기타 프로세스 | 실측: LLM만 6.06GB, LLM + 임베딩 7.29GB, + 리랭커 7.84GB / 8.15GB (여유 0.3GB) |
 
 **실측 성능 (2026-10-20, `scripts/check_ollama.py`, thinking off):** 생성 약 56 tokens/s, 프롬프트 처리 약 2,800 tokens/s, 모델 상주 시 짧은 응답 1.6~1.9초. 콜드 스타트(첫 요청)는 약 9초 → `OLLAMA_KEEP_ALIVE` 로 상주 유지 필요.
 

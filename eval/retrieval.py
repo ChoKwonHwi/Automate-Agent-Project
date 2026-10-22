@@ -154,6 +154,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mode", choices=["dense", "bm25", "hybrid"], help="검색 방식 (기본: .env 의 SEARCH_MODE)")
     parser.add_argument("--no-glossary", action="store_true", help="일상어 사전 확장 끄기")
     parser.add_argument("--rewrite", choices=["auto", "always"], help="LLM 쿼리 재작성 (실험용, Ollama 필요)")
+    parser.add_argument("--rerank", action=argparse.BooleanOptionalAction, default=None,
+                        help="리랭커 재정렬 켜기/끄기 (기본: .env 의 RERANKER)")
     args = parser.parse_args(argv)
 
     from retrieval.search import Searcher
@@ -162,13 +164,18 @@ def main(argv: list[str] | None = None) -> int:
     searcher = Searcher(mode=args.mode)
     if args.no_glossary:
         searcher.use_glossary = False
+    if args.rerank:
+        searcher.enable_rerank()
+    elif args.rerank is False:
+        searcher.reranker = None
     if args.rewrite:
         from rag.llm import OllamaChat
 
         searcher.enable_rewrite(OllamaChat(), always=args.rewrite == "always")
     try:
         searcher.warmup()  # 모델 로드 · GPU 초기화를 지연 측정에서 제외
-        search = lambda q, k: [(h.score, h.ref, h.chunk) for h in searcher.search(q, k)]
+        search = lambda q, k: [(h.rerank if h.rerank is not None else h.score, h.ref, h.chunk)
+                               for h in searcher.search(q, k)]
         results = evaluate(items, search, args.k)
     finally:
         searcher.close()
@@ -181,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     if searcher.mode == "hybrid":
         extras.append("일상어 사전 " + ("on" if searcher.use_glossary else "off"))
         extras.append(f"LLM 재작성 {args.rewrite}" if args.rewrite else "LLM 재작성 off")
+        extras.append("리랭커 on (상위 후보 재정렬)" if searcher.reranker else "리랭커 off")
     note = f"{mode_note} · {' · '.join(extras) + ' · ' if extras else ''}필터 없음 · k={args.k}"
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     report = build_report(args.name, results, note)
