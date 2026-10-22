@@ -31,6 +31,7 @@ class Settings:
     embedding_batch_size: int
     ollama_host: str
     search_mode: str
+    query_glossary: bool
 
 
 def get_settings() -> Settings:
@@ -44,4 +45,5 @@ def get_settings() -> Settings:
         embedding_batch_size=int(env.get("EMBEDDING_BATCH_SIZE", "16")),
         ollama_host=env.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/"),
         search_mode=env.get("SEARCH_MODE", "hybrid"),
+        query_glossary=env.get("QUERY_GLOSSARY", "on").lower() in ("1", "on", "true", "yes"),
     )

@@ -75,6 +75,7 @@ def evaluate(items: list[GoldenItem], search, k: int) -> list[dict]:
             scores.setdefault(normalize_ref(ref), score)
         results.append({
             "id": item.id, "type": item.type, "category": item.category, "question": item.question,
+            "colloquial": "일상어" in (item.notes or ""),
             "evidence": item.evidence, "retrieved": refs,
             "scores": [round(scores[normalize_ref(r)], 4) for r in refs],
             "rank": first_hit_rank(refs, item.evidence) if item.evidence else None,
@@ -106,6 +107,8 @@ def build_report(name: str, results: list[dict], settings_note: str) -> str:
         by_type[r["type"]].append(r)
     for t in ("fact", "numeric", "multi"):
         out.append(_metric_row(t, summarize(by_type.get(t, []))))
+    colloquial = [r for r in answerable if r.get("colloquial")]
+    out.append(_metric_row("일상어 (notes)", summarize(colloquial)))
     multi = by_type.get("multi", [])
     if multi:
         out += ["", f"multi 문항 근거 커버리지@5 (근거 조항 중 상위 5에 들어온 비율 평균): "
@@ -149,12 +152,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--name", default="w2_dense_baseline", help="리포트 파일 이름")
     parser.add_argument("--mode", choices=["dense", "bm25", "hybrid"], help="검색 방식 (기본: .env 의 SEARCH_MODE)")
+    parser.add_argument("--no-glossary", action="store_true", help="일상어 사전 확장 끄기")
+    parser.add_argument("--rewrite", choices=["auto", "always"], help="LLM 쿼리 재작성 (실험용, Ollama 필요)")
     args = parser.parse_args(argv)
 
     from retrieval.search import Searcher
 
     items = load_golden()
     searcher = Searcher(mode=args.mode)
+    if args.no_glossary:
+        searcher.use_glossary = False
+    if args.rewrite:
+        from rag.llm import OllamaChat
+
+        searcher.enable_rewrite(OllamaChat(), always=args.rewrite == "always")
     try:
         searcher.warmup()  # 모델 로드 · GPU 초기화를 지연 측정에서 제외
         search = lambda q, k: [(h.score, h.ref, h.chunk) for h in searcher.search(q, k)]
@@ -166,7 +177,11 @@ def main(argv: list[str] | None = None) -> int:
     mode_note = {"dense": f"dense only · {s.embedding_model} · Qdrant cosine",
                  "bm25": "BM25 only · Kiwi 형태소 + 복합명사",
                  "hybrid": f"hybrid RRF(k=60) · dense({s.embedding_model}) + BM25(Kiwi) 각 30개"}[searcher.mode]
-    note = f"{mode_note} · 필터 없음 · k={args.k}"
+    extras = []
+    if searcher.mode == "hybrid":
+        extras.append("일상어 사전 " + ("on" if searcher.use_glossary else "off"))
+        extras.append(f"LLM 재작성 {args.rewrite}" if args.rewrite else "LLM 재작성 off")
+    note = f"{mode_note} · {' · '.join(extras) + ' · ' if extras else ''}필터 없음 · k={args.k}"
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     report = build_report(args.name, results, note)
     (REPORT_DIR / f"{args.name}.md").write_text(report, encoding="utf-8")

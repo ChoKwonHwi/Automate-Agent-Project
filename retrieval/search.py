@@ -22,6 +22,9 @@ FILTER_FIELDS = {"org": "org", "category": "category", "section": "section", "do
 MODES = ("dense", "bm25", "hybrid")
 POOL = 30        # 각 검색기에서 가져와 합칠 후보 수
 RRF_K = 60       # Reciprocal Rank Fusion 상수 (표준값)
+# 쿼리 재작성 기준: 상위 결과의 최고 dense 점수가 이보다 낮을 때만 재작성 (W3 측정: Golden Set 하위 10% = 0.622,
+# 검색 실패한 일상어 질문 0.580) → 평소 질문은 재작성 없이 처리해 지연을 아낀다
+REWRITE_BELOW = 0.62
 
 
 @dataclass
@@ -58,6 +61,17 @@ class Searcher:
         if not self.client.collection_exists(s.collection):
             raise RuntimeError("인덱스가 없습니다. 먼저 `python -m retrieval.index` 를 실행하세요.")
         self._bm25 = None
+        self.use_glossary = s.query_glossary  # 일상어 → 규정 용어 사전 (hybrid 모드, 지연 ~0ms)
+        self.last_expansion: list[str] = []
+        self.rewriter = None          # enable_rewrite() 로 켠다 (hybrid 모드에서만 동작, 기본 꺼짐 — W3 실험 결과)
+        self.rewrite_below = REWRITE_BELOW
+        self.last_rewrite = None      # 마지막 검색의 재작성 결과 (평가 · 디버깅용)
+
+    def enable_rewrite(self, llm, below: float = REWRITE_BELOW, always: bool = False) -> None:
+        from .rewrite import QueryRewriter
+
+        self.rewriter = QueryRewriter(llm)
+        self.rewrite_below = 1.01 if always else below
 
     @property
     def bm25(self):
@@ -98,12 +112,56 @@ class Searcher:
         return hits
 
     def search(self, query: str, k: int = 5, **filters: str | None) -> list[Hit]:
+        self.last_rewrite = None
+        self.last_expansion = []
         vector = self.embedder.embed_query(query)
         if self.mode == "dense":
             return self._dense(vector, k, filters)
         if self.mode == "bm25":
             return self._bm25_hits(query, vector, k, filters)
-        return rrf_merge(self._dense(vector, POOL, filters), self._bm25_hits(query, vector, POOL, filters))[:k]
+        rankings = [self._dense(vector, POOL, filters), self._bm25_hits(query, vector, POOL, filters)]
+        score_vectors = [vector]
+        if self.use_glossary:
+            from .glossary import expand
+
+            self.last_expansion = expand(query)
+            if self.last_expansion:
+                # "원래 질문 + 규정 용어"로 검색한다. 원래 질문 검색을 함께 섞으면 확장 효과가 희석된다
+                # (W3 측정: 일상어 확인 질문 정답 8위 → 1위, Golden 85문항은 두 방식 동일 R@1 0.88 → 0.92)
+                expanded = query + " " + " ".join(self.last_expansion)
+                ev = self.embedder.embed_query(expanded)
+                score_vectors.append(ev)
+                rankings = [self._dense(ev, POOL, filters), self._bm25_hits(expanded, ev, POOL, filters)]
+        merged = rrf_merge(*rankings)
+        if len(score_vectors) > 1:
+            self._rescore(merged[:max(k, 10)], score_vectors)
+        best = max((h.score for h in merged[:10]), default=0.0)
+        if self.rewriter is None or best >= self.rewrite_below:
+            return merged[:k]
+
+        rw = self.rewriter.rewrite(query)
+        self.last_rewrite = rw
+        if rw.empty:
+            return merged[:k]
+        for q in rw.queries:
+            qv = self.embedder.embed_query(q)
+            score_vectors.append(qv)
+            rankings += [self._dense(qv, POOL, filters), self._bm25_hits(q, qv, POOL, filters)]
+        if rw.hypothetical:  # 가상 조문은 검색에만 쓴다 (근거 · 점수에는 쓰지 않음)
+            rankings.append(self._dense(self.embedder.embed_query(rw.hypothetical), POOL, filters))
+        merged = rrf_merge(*rankings)[:k]
+        self._rescore(merged, score_vectors)
+        return merged
+
+    def _rescore(self, hits: list[Hit], vectors: list[list[float]]) -> None:
+        """Hit.score 를 원래 질문 · 재작성 검색어 벡터와의 코사인 중 큰 값으로 맞춘다 (거절 기준의 척도 통일)."""
+        points = self.client.retrieve(self.settings.collection, [point_id(h.chunk["chunk_id"]) for h in hits],
+                                      with_vectors=True, with_payload=False)
+        stored = {str(p.id): p.vector for p in points}
+        for h in hits:
+            vec = stored.get(point_id(h.chunk["chunk_id"]))
+            if vec:
+                h.score = max(sum(a * b for a, b in zip(q, vec)) for q in vectors)
 
     def close(self) -> None:
         self.client.close()
@@ -146,9 +204,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--doc", help="규정명 (sources.csv 의 title, 예: 여비규정 별표1)")
     parser.add_argument("--full", action="store_true", help="본문 전체 출력")
     parser.add_argument("--mode", choices=MODES, help="검색 방식 (기본: .env 의 SEARCH_MODE)")
+    parser.add_argument("--rewrite", choices=["auto", "always"], help="LLM 쿼리 재작성 (hybrid 모드, 실험용)")
+    parser.add_argument("--no-glossary", action="store_true", help="일상어 사전 확장 끄기")
     args = parser.parse_args(argv)
 
     searcher = Searcher(mode=args.mode)
+    if args.no_glossary:
+        searcher.use_glossary = False
+    if args.rewrite:
+        from rag.llm import OllamaChat
+
+        searcher.enable_rewrite(OllamaChat(), always=args.rewrite == "always")
     try:
         searcher.warmup()  # 모델 로드 · GPU 초기화를 검색 시간과 분리해서 잰다
         started = time.perf_counter()
