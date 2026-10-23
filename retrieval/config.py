@@ -28,6 +28,7 @@ class Settings:
     collection: str
     embedding_model: str
     embedding_device: str
+    query_embedding_device: str
     embedding_batch_size: int
     ollama_host: str
     search_mode: str
@@ -44,6 +45,9 @@ def get_settings() -> Settings:
         collection=env.get("QDRANT_COLLECTION", "regulations"),
         embedding_model=env.get("EMBEDDING_MODEL", "BAAI/bge-m3"),
         embedding_device=env.get("EMBEDDING_DEVICE", "auto"),
+        # 질문 임베딩은 CPU 로 — GPU 8GB 에 LLM · 리랭커 · 임베딩이 다 올라가면 Windows 가 VRAM 을 시스템 RAM 으로 넘겨
+        # LLM 생성이 56 → 6~23 tok/s 로 떨어졌다 (W3 실측). CPU 질문 임베딩은 0.2~0.5초, GPU 1.1GB 확보.
+        query_embedding_device=env.get("QUERY_EMBEDDING_DEVICE", "cpu"),
         embedding_batch_size=int(env.get("EMBEDDING_BATCH_SIZE", "16")),
         ollama_host=env.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/"),
         search_mode=env.get("SEARCH_MODE", "hybrid"),

@@ -68,6 +68,17 @@ class SelectBlocksTest(unittest.TestCase):
         self.assertIn("일반강사", text)
         self.assertNotIn("사외강사", select_blocks(parts, block_cap=1300, question=q)[0]["text"])
 
+    def test_check_table_selects_relevant_lines(self):
+        rows = [f"- {i}. 일반업무 > 항목{i} → 전결권자·부장" for i in range(60)]
+        rows.insert(37, "- 1. 문서관리 > 문서분류 및 보존ㆍ폐기 > 이관, 폐기 문서 결정 및 관리 → 전결권자·부서장")
+        nl = "\n"
+        parts = [hit(0.5, "C 별표1", "[별표 1] <개정 2026. 6. 30.>" + nl + "본사 위임전결사항" + nl + nl.join(rows[:30]), 0),
+                 hit(0.4, "C 별표1", nl.join(rows[30:]), 1)]
+        text = select_blocks(parts, block_cap=300, question="보존기간 끝난 문서 폐기 결정은 누가 결재해?")[0]["text"]
+        self.assertTrue(text.startswith("[별표 1]" + nl + "(질문과 관련된 항목만 발췌)"))
+        self.assertIn("이관, 폐기 문서 결정 및 관리 → 전결권자·부서장", text)
+        self.assertLessEqual(len(text), 300 + 30)
+
     def test_prompt_contains_refs(self):
         user = build_messages("질문", select_blocks(HITS))[1]["content"]
         self.assertIn("[근거 1] 여비규정 별표1 (기관, 시행 2024-02-02)", user)
@@ -140,6 +151,12 @@ class AnswerTest(unittest.TestCase):
                               "answerable": True, "answer": "50만원입니다", "citations": ["여비규정 별표1"]})
         r = answer_question("숙박비?", lambda q, k: HITS, FakeLLM(content))
         self.assertEqual((r.answerable, r.refused_by, len(r.rejected_quotes)), (False, "verification", 1))
+
+    def test_quote_refs_are_added_to_citations(self):
+        content = json.dumps({"quotes": [{"ref": "여비규정 별표1", "text": "숙박비 서울 100,000"}],
+                              "answerable": True, "answer": "10만원", "citations": ["여비규정 제16조"]})
+        r = answer_question("숙박비?", lambda q, k: HITS, FakeLLM(content))
+        self.assertEqual(r.citations, ["여비규정 제16조", "여비규정 별표1"])
 
     def test_validate_citations_dedupes(self):
         blocks = [{"ref": "여비규정 별표1"}]

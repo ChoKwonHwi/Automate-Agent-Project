@@ -51,23 +51,52 @@ class MisusedEvidenceTest(unittest.TestCase):
 
 
 class FakeLLM:
-    def __init__(self, content):
-        self.content = content
+    def __init__(self, *contents):
+        self.contents = list(contents)
+        self.calls = []
 
     def chat(self, messages, schema=None, think=False, temperature=0.1):
-        return LLMResponse(self.content, 100, 50, 1000.0, 0.0)
+        self.calls.append(messages[-1]["content"])
+        return LLMResponse(self.contents.pop(0), 100, 50, 1000.0, 0.0)
 
 
 class GateIntegrationTest(unittest.TestCase):
-    def test_answer_quoting_irrelevant_article_is_refused(self):
+    def test_answer_quoting_irrelevant_article_is_retried_then_refused(self):
+        # W3 q010: 주소 변경신고 기한을 묻는데 이전비 신청 기한(여비규정 제20조)을 인용 → 관련 근거만으로 재생성 → 거절
         hits = [hit("취업규정 제9조", "직원은 거주지가 변경된 때에는 지체 없이 신고하여야 한다.", rerank=0.124),
                 hit("여비규정 제20조", "이전비는 이전한 날의 다음 날부터 6개월 이내에 신청하여야 한다.", rerank=0.0109)]
-        content = json.dumps({"quotes": [{"ref": "여비규정 제20조", "text": "이전비는 이전한 날의 다음 날부터 6개월 이내에 신청하여야 한다."}],
+        misused = json.dumps({"quotes": [{"ref": "여비규정 제20조", "text": "이전비는 이전한 날의 다음 날부터 6개월 이내에 신청하여야 한다."}],
                               "answerable": True, "answer": "6개월 이내에 신고해야 합니다 (여비규정 제20조)",
                               "citations": ["여비규정 제20조"]})
-        r = answer_question("이사하면 주소 변경신고는 며칠 안에 해?", lambda q, k: hits, FakeLLM(content))
-        self.assertEqual((r.answerable, r.refused_by), (False, "verification"))
-        self.assertTrue(any("관련도가 낮음" in w for w in r.warnings))
+        refuse = json.dumps({"quotes": [{"ref": "취업규정 제9조", "text": "직원은 거주지가 변경된 때에는 지체 없이 신고하여야 한다."}],
+                             "answerable": False, "answer": "규정에서 확인되지 않는다. 지체 없이 신고해야 한다는 규정만 있다.",
+                             "citations": []})
+        r = answer_question("이사하면 주소 변경신고는 며칠 안에 해?", lambda q, k: hits, FakeLLM(misused, refuse))
+        self.assertEqual((r.answerable, r.refused_by, r.retried), (False, "llm", True))
+
+
+class RetryTest(unittest.TestCase):
+    HITS = [hit("계약사무세칙 제3조", "발주부서란 계약요청을 하는 부서를 말한다.", rerank=0.999),
+            hit("위임전결세칙 별표2", "- 15. 계약관리 > 계약체결 → 전결권자·부서장", rerank=0.118)]
+
+    def test_misused_evidence_triggers_one_retry_without_low_relevance_blocks(self):
+        bad = json.dumps({"quotes": [{"ref": "위임전결세칙 별표2", "text": "- 15. 계약관리 > 계약체결 → 전결권자·부서장"}],
+                          "answerable": True, "answer": "발주부서입니다", "citations": ["위임전결세칙 별표2"]})
+        good = json.dumps({"quotes": [{"ref": "계약사무세칙 제3조", "text": "발주부서란 계약요청을 하는 부서를 말한다."}],
+                           "answerable": True, "answer": "발주부서입니다", "citations": ["계약사무세칙 제3조"]})
+        llm = FakeLLM(bad, good)
+        r = answer_question("계약요청하는 부서는?", lambda q, k: self.HITS, llm)
+        self.assertTrue(r.answerable and r.retried)
+        self.assertEqual(r.citations, ["계약사무세칙 제3조"])
+        self.assertEqual(len(llm.calls), 2)
+        self.assertNotIn("위임전결세칙 별표2", llm.calls[1])  # 재생성 때는 관련도 낮은 근거를 뺐다
+        self.assertIn("재생성", r.warnings[0])
+
+    def test_no_retry_for_other_verification_failures(self):
+        content = json.dumps({"quotes": [], "answerable": True, "answer": "답", "citations": []})
+        llm = FakeLLM(content)
+        r = answer_question("질문", lambda q, k: self.HITS, llm)
+        self.assertEqual((r.refused_by, r.retried, len(llm.calls)), ("verification", False, 1))
 
 
 if __name__ == "__main__":

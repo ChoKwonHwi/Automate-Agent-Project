@@ -58,7 +58,7 @@ class Searcher:
         self.mode = mode or s.search_mode
         if self.mode not in MODES:
             raise ValueError(f"mode 는 {MODES} 중 하나: {self.mode}")
-        self.embedder = Embedder(s.embedding_model, s.embedding_device, s.embedding_batch_size)
+        self.embedder = Embedder(s.embedding_model, s.query_embedding_device, s.embedding_batch_size)
         self.client = open_client(s.qdrant_path)
         if not self.client.collection_exists(s.collection):
             raise RuntimeError("인덱스가 없습니다. 먼저 `python -m retrieval.index` 를 실행하세요.")
@@ -75,7 +75,7 @@ class Searcher:
     def enable_rerank(self, reranker=None) -> None:
         from .reranker import Reranker
 
-        self.reranker = reranker or Reranker(self.settings.reranker_model, self.settings.embedding_device)
+        self.reranker = reranker or Reranker(self.settings.reranker_model, "auto")  # GPU (CPU 는 질문당 83초)
 
     def _rerank(self, query: str, hits: list[Hit], k: int) -> list[Hit]:
         """RRF 상위 RERANK_TOP 개를 리랭커 관련도로 다시 줄 세운다. 그 밖의 후보는 버린다."""
@@ -133,25 +133,29 @@ class Searcher:
     def search(self, query: str, k: int = 5, **filters: str | None) -> list[Hit]:
         self.last_rewrite = None
         self.last_expansion = []
-        vector = self.embedder.embed_query(query)
+        expanded = None
+        if self.use_glossary and self.mode == "hybrid":
+            from .glossary import expand
+
+            self.last_expansion = expand(query)
+            if self.last_expansion:
+                expanded = query + " " + " ".join(self.last_expansion)
+        # 원래 질문과 확장 질문을 한 번에 임베딩한다 (질문 임베딩이 CPU 라 호출 횟수가 지연을 좌우)
+        vectors = self.embedder.embed([query, expanded] if expanded else [query])
+        vector = vectors[0]
         if self.mode == "dense":
             return self._dense(vector, k, filters)
         if self.mode == "bm25":
             return self._bm25_hits(query, vector, k, filters)
         rankings = [self._dense(vector, POOL, filters), self._bm25_hits(query, vector, POOL, filters)]
         score_vectors = [vector]
-        if self.use_glossary:
-            from .glossary import expand
-
-            self.last_expansion = expand(query)
-            if self.last_expansion:
-                # 원래 질문 검색에 "원래 질문 + 규정 용어" 검색을 더한다 (add).
-                # 확장 검색만 쓰면 사전이 빗나갈 때 원래 결과를 통째로 잃는다
-                # (W3 일상어 16문항: q081 "교통비"→운임 확장으로 6위 → 10위 밖. add 가 전체 · 일상어 모두 최고 MRR)
-                expanded = query + " " + " ".join(self.last_expansion)
-                ev = self.embedder.embed_query(expanded)
-                score_vectors.append(ev)
-                rankings += [self._dense(ev, POOL, filters), self._bm25_hits(expanded, ev, POOL, filters)]
+        if expanded:
+            # 원래 질문 검색에 "원래 질문 + 규정 용어" 검색을 더한다 (add).
+            # 확장 검색만 쓰면 사전이 빗나갈 때 원래 결과를 통째로 잃는다
+            # (W3 일상어 16문항: q081 "교통비"→운임 확장으로 6위 → 10위 밖. add 가 전체 · 일상어 모두 최고 MRR)
+            ev = vectors[1]
+            score_vectors.append(ev)
+            rankings += [self._dense(ev, POOL, filters), self._bm25_hits(expanded, ev, POOL, filters)]
         merged = rrf_merge(*rankings)
         if len(score_vectors) > 1:
             self._rescore(merged[:max(k, 10)], score_vectors)

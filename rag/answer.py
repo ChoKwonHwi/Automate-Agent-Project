@@ -50,6 +50,7 @@ class AnswerResult:
     quotes: list[dict] = field(default_factory=list)              # 원문 대조를 통과한 근거 인용문
     rejected_quotes: list[dict] = field(default_factory=list)     # 원문에 없는 인용문 (모델이 지어낸 문장)
     raw_answer: str = ""                                          # 검증 거절 전 모델 답 (디버깅 · 평가용)
+    retried: bool = False                                         # 근거 오용으로 관련 근거만 남겨 재생성했는가
     warnings: list[str] = field(default_factory=list)
     search_ms: float = 0.0
     llm_ms: float = 0.0
@@ -67,12 +68,50 @@ def keyword_overlap(question: str, text: str) -> int:
     return score
 
 
+def _is_check_lines(parts: list[tuple[int, str]]) -> bool:
+    """체크 표를 문장화한 별표("- 업무 > 세부 → 전결권자·부서장" 줄들)인가."""
+    lines = [l for _, t in parts for l in t.splitlines() if l.strip()]
+    return len(lines) >= 5 and sum(1 for l in lines if l.startswith("- ")) / len(lines) >= 0.5
+
+
+def _select_check_lines(parts: list[tuple[int, str]], cap: int, question: str) -> str:
+    """체크 표는 줄 하나가 완결된 항목이므로 조각이 아니라 줄 단위로 고른다.
+
+    위임전결표(15만 자, 2,900줄)는 조각 하나가 상한을 거의 채워, 조각 단위로는 정답 줄이 든 조각이 빠졌다
+    ("문서 폐기 결정은 누가 결재해?" — 정답 줄 조각이 검색 4위였는데 근거에서 제외).
+    """
+    heading = ""
+    items: list[tuple[int, int, str]] = []  # (조각 번호, 줄 번호, 줄)
+    for part_no, text in sorted(parts):
+        for i, line in enumerate(text.splitlines()):
+            if line.startswith("- "):
+                items.append((part_no, i, line))
+            elif not heading and line.strip() and part_no == min(p for p, _ in parts):
+                heading = _short_heading_line(line)
+    scored = sorted(items, key=lambda x: (-keyword_overlap(question, x[2]), x[0], x[1]))
+    kept, used = [], len(heading)
+    for item in scored:
+        if used + len(item[2]) + 1 > cap:
+            break
+        kept.append(item)
+        used += len(item[2]) + 1
+    kept.sort()
+    return "\n".join(([heading, "(질문과 관련된 항목만 발췌)"] if heading else []) + [line for *_, line in kept])
+
+
+def _short_heading_line(line: str) -> str:
+    m = re.match(r"^[\[【][^\]】]{1,30}[\]】]", line.strip())
+    return m.group(0) if m else line.strip()[:60]
+
+
 def _join_parts(parts: list[tuple[int, str]], cap: int, question: str | None = None) -> str:
     """상한 안에 드는 조각만 남겨 원래 순서로 잇는다.
 
     남길 조각의 우선순위: 질문 어절이 많이 나오는 조각 → 검색 순위.
     (W2 평가 q024: 검색 점수만 보면 "사외강사" 조각이 "사내 일반강사" 조각을 밀어냈다)
     """
+    if question and _is_check_lines(parts):
+        return _select_check_lines(parts, cap, question)
     if question:
         ranked = sorted(enumerate(parts), key=lambda x: (-keyword_overlap(question, x[1][1]), x[0]))
         parts = [p for _, p in ranked]
@@ -223,6 +262,31 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
                             context=[{"ref": h.ref, "score": round(h.score, 4)} for h in hits[:3]])
 
     blocks = with_definitions(question, select_blocks(hits, question=question), definitions)
+    result = _generate(question, blocks, llm, search_ms)
+    if result.refused_by == "verification" and any("관련도가 낮음" in w for w in result.warnings):
+        # 근거 오용 → 관련도 낮은 근거를 빼고 1회 재생성. 정답 조항이 근거 1순위에 있는데 모델이 덜 관련된 조항을
+        # 인용한 경우가 대부분이었다 (W3: q046 · q052 · q072). 이 경우에만 LLM 을 한 번 더 부른다.
+        relevant = drop_low_relevance(blocks)
+        if 0 < len(relevant) < len(blocks):
+            retry = _generate(question, relevant, llm, search_ms)
+            retry.warnings = [f"1차 답변 근거 오용 → 관련 근거만으로 재생성 ({len(blocks)}→{len(relevant)}개)"] + retry.warnings
+            retry.llm_ms += result.llm_ms
+            retry.retried = True
+            return retry
+    return result
+
+
+def drop_low_relevance(blocks: list[dict], ratio: float = RELEVANCE_RATIO) -> list[dict]:
+    """리랭커 점수가 최고 후보의 ratio 미만인 근거를 뺀다 (점수 없는 정의 블록은 남긴다)."""
+    scored = [b["rerank"] for b in blocks if b.get("rerank") is not None]
+    if not scored:
+        return blocks
+    top = max(scored)
+    return [b for b in blocks if b.get("rerank") is None or b["rerank"] >= ratio * top]
+
+
+def _generate(question: str, blocks: list[dict], llm, search_ms: float) -> AnswerResult:
+    """근거 블록으로 답을 생성하고 인용 · 인용문 · 기한 · 근거 오용을 검증한다."""
     messages = build_messages(question, blocks)
     data, resp, warnings = None, None, []
     for attempt in range(2):  # JSON 파싱 실패 · 호출 실패 시 1회 재시도 (PRD F-AGT-04)
@@ -248,6 +312,10 @@ def answer_question(question: str, search, llm, k: int = 8, min_score: float = M
     answerable = bool(data["answerable"])
     answer_text = str(data["answer"]).strip()
     quotes, rejected = verify_quotes([q for q in data.get("quotes", []) if isinstance(q, dict)], blocks)
+    # 출처 보정: 검증된 근거 문장의 조항은 출처에 반드시 넣는다 (모델이 근거는 별표에서 가져오고 출처는 다른 조항으로 적는 경우)
+    for q in quotes:
+        if q["ref"] not in citations:
+            citations.append(q["ref"])
     if rejected:
         warnings.append(f"원문에 없는 인용문 {len(rejected)}개")
     refused_by = None if answerable else "llm"
