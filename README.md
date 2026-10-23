@@ -43,7 +43,9 @@
   - [x] 일상어 → 규정 용어 사전 확장: 일상어 R@5 0.81 → 0.88 (LLM 쿼리 재작성은 효과 없어 기본 끔)
   - [x] Golden Set 110문항(일상어 20) 재측정: 거절 76% · 오거절 12% · 인용 적중 90% — 근거 오용 · 계산은 남은 과제
   - [x] 리랭커(GPU, 재정렬 + 근거 오용 게이트): 검색 R@1 0.83 → 0.91, **거절 75% → 100%**, 오거절 12% → 10%
-  - [ ] 두 줄 머리 표 · 오거절 줄이기
+  - [x] 두 줄 머리 · 체크 표(위임전결) 문장화, 출처 보정(인용 적중 95%), 근거 오용 시 재생성(오거절 11%)
+  - [x] GPU 구성 확정: KV 캐시 8비트 + 질문 임베딩 CPU (6.9GB, 세 모델 모두 GPU 는 부하 시 4배 저하)
+  - [ ] 오거절 줄이기 · W3 마무리 측정
 - [ ] W4 — MCP 서버, LangGraph Agent, 계산 도구
 - [ ] W5 — Notion/Slack 연동, 승인 흐름, API + UI
 - [ ] W6 — Langfuse, Docker Compose, 평가 리포트
@@ -64,6 +66,11 @@ copy .env.example .env
 ```bash
 ollama pull qwen3:8b
 python scripts/check_ollama.py
+```
+VRAM 8GB 에서는 Ollama KV 캐시를 8비트로 압축해 LLM 메모리를 줄인다 (사용자 환경변수 설정 후 Ollama 재시작).
+```powershell
+[Environment]::SetEnvironmentVariable("OLLAMA_FLASH_ATTENTION", "1", "User")
+[Environment]::SetEnvironmentVariable("OLLAMA_KV_CACHE_TYPE", "q8_0", "User")
 ```
 응답 속도(tokens/s), VRAM 사용량, JSON 구조화 출력 여부를 확인합니다.
 
